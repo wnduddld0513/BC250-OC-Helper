@@ -1,6 +1,6 @@
 # BC-250 OC Helper
 
-A simple GUI tool to modify the AMD BC-250's CPU and GPU overclocking parameters. 
+A simple GUI overclock tool to modify BC-250's CPU and GPU.
 
 ## DISCLAIMER
 
