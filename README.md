@@ -2,11 +2,6 @@
 
 A simple GUI overclock tool to modify BC-250's CPU and GPU.
 
-## DISCLAIMER
-
-**Overclocking is done at your own risk!** Failure to exercise caution can result in permanent damage to your hardware. 
-
-Increasing the CPU frequency without undervolting will result in uncapped Vid scaling, which can destroy your hardware. Always make sure that the CPU core voltage ("Vid") does not exceed **1.325 V** under any circumstances! Please monitor your hardware closely and always perform stress testing after changing parameters.
 
 ## Installation
 
