@@ -13,9 +13,7 @@ if os.geteuid() != 0:
 CONFIG_FILE = "/opt/bc250-oc-helper/config.txt"
 ICON_FILE = "/opt/bc250-oc-helper/icon.png"
 
-# Gemini 폰트 느낌 산세리프 정의
-# (시스템 폰트 중에서 가장 유사한 것을 사용하여 Gemini 느낌을 극대화합니다.)
-GEMINI_FONT_FAMILY = "sans-serif" # 리눅스 시스템에서 가장 유사한 산세리프 유도
+GEMINI_FONT_FAMILY = "sans-serif"
 
 LANG = {
     "English": {
@@ -24,13 +22,14 @@ LANG = {
         "max_temp": "Max Temp",
         "target_clk": "Target Clock",
         "target_vol": "Target Volt",
-        "find_vol": "Find Volt",
+        "find_vol": "Detect",
         "apply": "Apply",
         "throttling": "Throttling",
         "recovery": "Recovery",
         "clk_mhz": "Clock (MHz)",
         "vol_mv": "Volt (mV)",
-        "reboot": "Reboot"
+        "reboot": "Reboot",
+        "update": "Update"
     },
     "Korean": {
         "cpu_control": "CPU 제어",
@@ -38,24 +37,32 @@ LANG = {
         "max_temp": "최대 온도",
         "target_clk": "목표 클럭",
         "target_vol": "목표 전압",
-        "find_vol": "전압 찾기",
+        "find_vol": "탐지",
         "apply": "적용",
         "throttling": "Throttling",
         "recovery": "Recovery",
         "clk_mhz": "클럭 (MHz)",
         "vol_mv": "전압 (mV)",
-        "reboot": "재부팅"
+        "reboot": "재부팅",
+        "update": "업데이트"
     }
 }
+
+# --- 재미나이 스타일 색상 팔레트 (Light, Dark) ---
+BG_COLOR = ("#f0f4f9", "#131314")          
+CARD_BG = ("#ffffff", "#1e1f20")           
+ENTRY_BG = ("#f0f4f9", "#131314")          
+SEC_BTN_BG = ("#e3e3e3", "#333537")        
+SEC_BTN_HOVER = ("#d3d3d3", "#444648")
+TEXT_COLOR = ("#1e1f20", "#e3e3e3")
 
 class OCApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("BC-250 OC Helper")
-        self.geometry("460x700") # 둥근 디자인에 맞춰 크기 보정
-        self.minsize(440, 640)
+        self.geometry("450x640")
+        self.minsize(420, 580)
         
-        # 윈도우 프로그램 아이콘(좌측 상단) 적용
         try:
             if os.path.exists(ICON_FILE):
                 icon_img = tk.PhotoImage(file=ICON_FILE)
@@ -70,13 +77,13 @@ class OCApp(ctk.CTk):
         self.settings = {"lang": "English", "theme": "Dark"}
         self.load_settings()
         
+        self.configure(fg_color=BG_COLOR)
         ctk.set_appearance_mode(self.settings["theme"])
         ctk.set_default_color_theme("blue")
         
         self.create_menu()
         self.create_widgets()
         
-        # 초기 테마/언어 색상 및 텍스트 적용
         self.change_theme(self.settings["theme"])
         self.change_lang(self.settings["lang"])
         
@@ -105,44 +112,29 @@ class OCApp(ctk.CTk):
             pass
 
     def create_menu(self):
-        # 상단바: 완전히 둥근 Gemini 스타일
-        self.menu_frame = ctk.CTkFrame(self, height=50, corner_radius=25, fg_color=("gray85", "gray17"))
+        self.menu_frame = ctk.CTkFrame(self, height=50, corner_radius=25, fg_color=CARD_BG)
         self.menu_frame.pack(side="top", fill="x", padx=20, pady=(15, 10))
         
-        self.lang_menu = ctk.CTkOptionMenu(self.menu_frame, values=["English", "Korean"], width=130, corner_radius=25, command=self.change_lang, font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13))
+        self.lang_menu = ctk.CTkComboBox(self.menu_frame, values=["English", "Korean"], width=110, corner_radius=25, state="readonly", command=self.change_lang, font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13))
         self.lang_menu.set(self.settings["lang"])
-        self.lang_menu.pack(side="left", padx=15, pady=10)
+        self.lang_menu.pack(side="left", padx=(15, 5), pady=10)
         
-        self.theme_menu = ctk.CTkOptionMenu(self.menu_frame, values=["Dark", "Light"], width=130, corner_radius=25, command=self.change_theme, font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13))
+        self.theme_menu = ctk.CTkComboBox(self.menu_frame, values=["Dark", "Light"], width=100, corner_radius=25, state="readonly", command=self.change_theme, font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13))
         self.theme_menu.set(self.settings["theme"])
         self.theme_menu.pack(side="left", padx=5, pady=10)
+        
+        # [신규 기능] 자체 업데이트 버튼 (우측 정렬)
+        self.btn_update = ctk.CTkButton(self.menu_frame, width=90, corner_radius=25, command=self.update_app, font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13, weight="bold"))
+        self.btn_update.pack(side="right", padx=(5, 15), pady=10)
 
     def change_theme(self, new_theme):
         self.settings["theme"] = new_theme
         self.save_settings()
         ctk.set_appearance_mode(new_theme)
         
-        # [오류 해결 로직]
-        # Gemini 색상 체계 업데이트: 다크모드일 때 배경 `#1e1f20`, 버튼 `#2a2c2d`. 라이트모드일 때 배경 `#f0f4f9`, 버튼 `#e3e3e3`.
-        if new_theme == "Dark":
-            bg_color = "#1e1f20"
-            btn_color = "#2a2c2d"
-            btn_hover_color = "#333333"
-            text_color = "#e3e3e3"
-            slider_color = "#8ab4f8"
-            self.configure(fg_color=bg_color)
-            self.menu_frame.configure(fg_color=("gray85", "gray17"))
-        else:
-            bg_color = "#f0f4f9"
-            btn_color = "#e3e3e3"
-            btn_hover_color = "#cccccc"
-            text_color = "#1e1f20"
-            slider_color = "#1a73e8"
-            self.configure(fg_color=bg_color)
-            self.menu_frame.configure(fg_color=("gray85", "gray17"))
-            
-        self.lang_menu.configure(fg_color=btn_color, button_color=btn_color, button_hover_color=btn_hover_color, text_color=text_color)
-        self.theme_menu.configure(fg_color=btn_color, button_color=btn_color, button_hover_color=btn_hover_color, text_color=text_color)
+        self.lang_menu.configure(fg_color=SEC_BTN_BG, button_color=SEC_BTN_BG, button_hover_color=SEC_BTN_HOVER, text_color=TEXT_COLOR, border_width=0, dropdown_fg_color=CARD_BG)
+        self.theme_menu.configure(fg_color=SEC_BTN_BG, button_color=SEC_BTN_BG, button_hover_color=SEC_BTN_HOVER, text_color=TEXT_COLOR, border_width=0, dropdown_fg_color=CARD_BG)
+        self.btn_update.configure(fg_color=SEC_BTN_BG, hover_color=SEC_BTN_HOVER, text_color=TEXT_COLOR)
 
     def change_lang(self, lang_name):
         self.settings["lang"] = lang_name
@@ -159,20 +151,38 @@ class OCApp(ctk.CTk):
         self.btn_apply_cpu.configure(text=t["apply"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13, weight="bold"))
         self.btn_apply_gpu.configure(text=t["apply"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13, weight="bold"))
         self.btn_reboot.configure(text=t["reboot"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13, weight="bold"))
+        self.btn_update.configure(text=t["update"])
         
         self.lbl_throttling.configure(text=t["throttling"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13))
         self.lbl_recovery.configure(text=t["recovery"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13))
         self.lbl_clk_head.configure(text=t["clk_mhz"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12))
         self.lbl_vol_head.configure(text=t["vol_mv"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12))
 
+    def update_app(self):
+        # 깃허브에서 파이썬 코드를 새로 받고 현재 실행중인 프로그램을 교체 후 재시작하는 로직
+        try:
+            url = "https://raw.githubusercontent.com/wnduddld0513/BC250-OC-Helper/main/bc250-oc-helper.py"
+            target_path = "/opt/bc250-oc-helper/bc250-oc-helper.py"
+            temp_path = "/tmp/bc250-oc-helper-update.py"
+            
+            # 임시 경로에 최신버전 다운로드
+            subprocess.run(["curl", "-sSL", "-o", temp_path, url], check=True)
+            
+            # 파일 바꿔치기 및 권한 부여
+            subprocess.run(["sudo", "mv", temp_path, target_path], check=True)
+            subprocess.run(["sudo", "chmod", "+x", target_path], check=True)
+            
+            # 파이썬 스크립트 자기 자신을 재시작
+            os.execv(sys.executable, [sys.executable, target_path])
+        except Exception as e:
+            print(f"Update failed: {e}")
+
     def create_widgets(self):
-        # 메인 래퍼
         main_wrapper = ctk.CTkFrame(self, fg_color="transparent")
         main_wrapper.pack(fill="both", expand=True, padx=20, pady=(10, 20))
 
         # --- CPU 영역 ---
-        # Gemini 카드 스타일: 둥근 모서리
-        cpu_card = ctk.CTkFrame(main_wrapper, corner_radius=20, fg_color=("gray95", "gray13"))
+        cpu_card = ctk.CTkFrame(main_wrapper, corner_radius=20, fg_color=CARD_BG)
         cpu_card.pack(side="top", fill="x", pady=(0, 15))
         
         self.cpu_label = ctk.CTkLabel(cpu_card, text="", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=14, weight="bold"))
@@ -182,49 +192,45 @@ class OCApp(ctk.CTk):
         cpu_grid.pack(fill="x", padx=20, pady=5)
         cpu_grid.columnconfigure(3, weight=1)
 
-        # Gemini 스타일 입력창: 둥근 모서리
         self.lbl_max_temp = ctk.CTkLabel(cpu_grid, text="")
         self.lbl_max_temp.grid(row=0, column=0, sticky="w", pady=8)
         self.cpu_temp_var = ctk.StringVar(value="90")
-        self.cpu_temp_entry = ctk.CTkEntry(cpu_grid, textvariable=self.cpu_temp_var, width=70, corner_radius=10, justify="center", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12))
+        self.cpu_temp_entry = ctk.CTkEntry(cpu_grid, textvariable=self.cpu_temp_var, width=70, corner_radius=10, border_width=0, fg_color=ENTRY_BG, justify="center", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12))
         self.cpu_temp_entry.grid(row=0, column=1, padx=10, pady=8)
         ctk.CTkLabel(cpu_grid, text="°C", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12)).grid(row=0, column=2, sticky="w", pady=8)
 
         self.lbl_target_clk = ctk.CTkLabel(cpu_grid, text="")
         self.lbl_target_clk.grid(row=1, column=0, sticky="w", pady=8)
         self.cpu_clk_var = ctk.StringVar(value="4000")
-        self.cpu_clk_entry = ctk.CTkEntry(cpu_grid, textvariable=self.cpu_clk_var, width=70, corner_radius=10, justify="center", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12))
+        self.cpu_clk_entry = ctk.CTkEntry(cpu_grid, textvariable=self.cpu_clk_var, width=70, corner_radius=10, border_width=0, fg_color=ENTRY_BG, justify="center", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12))
         self.cpu_clk_entry.grid(row=1, column=1, padx=10, pady=8)
         ctk.CTkLabel(cpu_grid, text="MHz", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12)).grid(row=1, column=2, sticky="w", pady=8)
         
-        # Gemini 스타일 슬라이더
         self.cpu_clk_slider = ctk.CTkSlider(cpu_grid, from_=1000, to=4500, corner_radius=15, command=self.on_cpu_clk_slider_move)
         self.cpu_clk_slider.grid(row=1, column=3, sticky="ew", padx=15, pady=8)
 
         self.lbl_target_vol = ctk.CTkLabel(cpu_grid, text="")
         self.lbl_target_vol.grid(row=2, column=0, sticky="w", pady=8)
         self.cpu_vol_var = ctk.StringVar(value="1.250")
-        self.cpu_vol_entry = ctk.CTkEntry(cpu_grid, textvariable=self.cpu_vol_var, width=70, corner_radius=10, justify="center", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12))
+        self.cpu_vol_entry = ctk.CTkEntry(cpu_grid, textvariable=self.cpu_vol_var, width=70, corner_radius=10, border_width=0, fg_color=ENTRY_BG, justify="center", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12))
         self.cpu_vol_entry.grid(row=2, column=1, padx=10, pady=8)
         ctk.CTkLabel(cpu_grid, text="V", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12)).grid(row=2, column=2, sticky="w", pady=8)
         
         self.cpu_vol_slider = ctk.CTkSlider(cpu_grid, from_=0.800, to=1.325, corner_radius=15, command=self.on_cpu_slider_move)
         self.cpu_vol_slider.grid(row=2, column=3, sticky="ew", padx=15, pady=8)
 
-        # Gemini 스타일 버튼: 완전히 둥근 모서리
         cpu_btn_frame = ctk.CTkFrame(cpu_card, fg_color="transparent")
         cpu_btn_frame.pack(fill="x", padx=20, pady=(5, 15))
-        self.btn_apply_cpu = ctk.CTkButton(cpu_btn_frame, width=100, corner_radius=25, fg_color=None) # [오류 해결 로직] 재미나이 스타일 회색 버튼
+        self.btn_apply_cpu = ctk.CTkButton(cpu_btn_frame, width=100, corner_radius=25)
         self.btn_apply_cpu.pack(side="right", padx=(10, 0))
-        self.btn_find_vol = ctk.CTkButton(cpu_btn_frame, width=110, corner_radius=25, fg_color=("gray90", "gray17"), hover_color=("gray85", "gray19"))
+        self.btn_find_vol = ctk.CTkButton(cpu_btn_frame, width=110, corner_radius=25, fg_color=SEC_BTN_BG, hover_color=SEC_BTN_HOVER, text_color=TEXT_COLOR)
         self.btn_find_vol.pack(side="right", padx=(0, 0))
         
-        # 버튼 커맨드 연결
         self.btn_apply_cpu.configure(command=self.apply_cpu_oc)
         self.btn_find_vol.configure(command=self.run_cpu_detect)
 
         # --- GPU 영역 ---
-        self.gpu_card = ctk.CTkFrame(main_wrapper, corner_radius=20, fg_color=("gray95", "gray13"))
+        self.gpu_card = ctk.CTkFrame(main_wrapper, corner_radius=20, fg_color=CARD_BG)
         self.gpu_card.pack(side="top", fill="both", expand=True)
         
         self.gpu_label = ctk.CTkLabel(self.gpu_card, text="", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=14, weight="bold"))
@@ -236,13 +242,13 @@ class OCApp(ctk.CTk):
         self.lbl_throttling = ctk.CTkLabel(temp_frame, font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13))
         self.lbl_throttling.grid(row=0, column=0, sticky="w", pady=5)
         self.gpu_throt_var = ctk.StringVar(value="90")
-        ctk.CTkEntry(temp_frame, textvariable=self.gpu_throt_var, width=65, corner_radius=10, justify="center", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12)).grid(row=0, column=1, padx=10, pady=5)
+        ctk.CTkEntry(temp_frame, textvariable=self.gpu_throt_var, width=65, corner_radius=10, border_width=0, fg_color=ENTRY_BG, justify="center", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12)).grid(row=0, column=1, padx=10, pady=5)
         ctk.CTkLabel(temp_frame, text="°C", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12)).grid(row=0, column=2, sticky="w", pady=5)
         
         self.lbl_recovery = ctk.CTkLabel(temp_frame, font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13))
         self.lbl_recovery.grid(row=1, column=0, sticky="w", pady=5)
         self.gpu_recov_var = ctk.StringVar(value="85")
-        ctk.CTkEntry(temp_frame, textvariable=self.gpu_recov_var, width=65, corner_radius=10, justify="center", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12)).grid(row=1, column=1, padx=10, pady=5)
+        ctk.CTkEntry(temp_frame, textvariable=self.gpu_recov_var, width=65, corner_radius=10, border_width=0, fg_color=ENTRY_BG, justify="center", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12)).grid(row=1, column=1, padx=10, pady=5)
         ctk.CTkLabel(temp_frame, text="°C", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12)).grid(row=1, column=2, sticky="w", pady=5)
 
         list_label_frame = ctk.CTkFrame(self.gpu_card, fg_color="transparent")
@@ -255,18 +261,18 @@ class OCApp(ctk.CTk):
         self.lbl_vol_head = ctk.CTkLabel(list_label_frame, font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12))
         self.lbl_vol_head.grid(row=0, column=1, sticky="w", padx=5)
 
-        scroll_frame = ctk.CTkScrollableFrame(self.gpu_card, fg_color="transparent", corner_radius=15)
-        scroll_frame.pack(side="top", fill="both", expand=True, padx=15, pady=5)
-        scroll_frame.columnconfigure(0, minsize=115)
-        scroll_frame.columnconfigure(1, minsize=115)
-        self.points_container = scroll_frame
-
         gpu_btn_frame = ctk.CTkFrame(self.gpu_card, fg_color="transparent")
         gpu_btn_frame.pack(side="bottom", fill="x", padx=20, pady=(5, 15))
-        self.btn_apply_gpu = ctk.CTkButton(gpu_btn_frame, width=100, corner_radius=25, fg_color=None) # 재미나이 스타일 회색 버튼
+        self.btn_apply_gpu = ctk.CTkButton(gpu_btn_frame, width=100, corner_radius=25)
         self.btn_apply_gpu.pack(side="right", padx=(10, 0))
-        self.btn_reboot = ctk.CTkButton(gpu_btn_frame, width=100, corner_radius=25, fg_color=("#d9534f", "#c9302c"), hover_color=("#c9302c", "#a01e1e")) # 재부팅/삭제는 Gemini 빨간색
+        self.btn_reboot = ctk.CTkButton(gpu_btn_frame, width=100, corner_radius=25, fg_color=("#d9534f", "#c9302c"), hover_color=("#c9302c", "#a01e1e"))
         self.btn_reboot.pack(side="right", padx=(0, 0))
+        
+        self.btn_apply_gpu.configure(command=self.apply_gpu_config)
+        self.btn_reboot.configure(command=self.reboot_system)
+
+        self.points_container = ctk.CTkScrollableFrame(self.gpu_card, fg_color="transparent", corner_radius=15)
+        self.points_container.pack(side="top", fill="both", expand=True, padx=15, pady=5)
 
     def on_cpu_clk_slider_move(self, val):
         self.cpu_clk_var.set(str(int(val)))
@@ -305,13 +311,9 @@ class OCApp(ctk.CTk):
             mv = int(float(self.cpu_vol_var.get()) * 1000)
             temp = int(self.cpu_temp_var.get())
             
-            # [오류 해결 로직]
-            # scale 값이 없는 설정 파일이 쓰여지는 것을 방지하기 위해
-            # apply 전 강제로 bc250-detect를 돌려 올바른 scale 값을 찾아 overclock.conf를 생성하게 유도함
             detect_cmd = ["sudo", "/root/.local/bin/bc250-detect", "--frequency", str(mhz), "--vid", str(mv), "-t", str(temp), "--keep", "-c", self.overclock_conf_path]
             subprocess.run(detect_cmd, check=True)
             
-            # 제대로 생성된 설정 파일로 서비스 재시작
             apply_cmd = ["sudo", "/root/.local/bin/bc250-apply", "--install", self.overclock_conf_path]
             subprocess.run(apply_cmd, check=True)
             
@@ -331,23 +333,20 @@ class OCApp(ctk.CTk):
     def render_gpu_rows(self):
         for widget in self.points_container.winfo_children(): widget.destroy()
         for i, pt in enumerate(self.gpu_safe_points):
-            f_entry = ctk.CTkEntry(self.points_container, width=80, corner_radius=10, justify="center", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=11))
+            f_entry = ctk.CTkEntry(self.points_container, width=80, corner_radius=10, border_width=0, fg_color=ENTRY_BG, justify="center", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12))
             f_entry.insert(0, pt["frequency"])
             f_entry.grid(row=i, column=0, padx=5, pady=3, sticky="w")
             f_entry.bind("<FocusOut>", lambda e, idx=i, entry=f_entry: self.update_gpu_val(idx, "frequency", entry.get()))
             
-            v_entry = ctk.CTkEntry(self.points_container, width=80, corner_radius=10, justify="center", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=11))
+            v_entry = ctk.CTkEntry(self.points_container, width=80, corner_radius=10, border_width=0, fg_color=ENTRY_BG, justify="center", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12))
             v_entry.insert(0, pt["voltage"])
             v_entry.grid(row=i, column=1, padx=5, pady=3, sticky="w")
             v_entry.bind("<FocusOut>", lambda e, idx=i, entry=v_entry: self.update_gpu_val(idx, "voltage", entry.get()))
             
-            # [오류 해결 로직] Gemini 스타일 완전히 둥근 원형 +/- 버튼
             btn_frame = ctk.CTkFrame(self.points_container, fg_color="transparent")
             btn_frame.grid(row=i, column=2, padx=2, pady=3, sticky="w")
-            ctk.CTkButton(btn_frame, text="+", width=34, height=34, corner_radius=17, fg_color=None, font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=14, weight="bold"), command=lambda idx=i: self.add_gpu_row(idx)).pack(side="left", padx=3)
-            
-            # 마이너스 버튼도 동일하게 완전히 둥글고 회색으로 변경 (삭제가 아닌 행 제거)
-            ctk.CTkButton(btn_frame, text="−", width=34, height=34, corner_radius=17, fg_color=None, font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=14, weight="bold"), command=lambda idx=i: self.remove_gpu_row(idx)).pack(side="left", padx=3)
+            ctk.CTkButton(btn_frame, text="+", width=36, height=36, corner_radius=18, fg_color=SEC_BTN_BG, hover_color=SEC_BTN_HOVER, text_color=TEXT_COLOR, font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=20, weight="bold"), command=lambda idx=i: self.add_gpu_row(idx)).pack(side="left", padx=3)
+            ctk.CTkButton(btn_frame, text="−", width=36, height=36, corner_radius=18, fg_color=SEC_BTN_BG, hover_color=SEC_BTN_HOVER, text_color=TEXT_COLOR, font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=20, weight="bold"), command=lambda idx=i: self.remove_gpu_row(idx)).pack(side="left", padx=3)
 
     def update_gpu_val(self, idx, key, val): self.gpu_safe_points[idx][key] = val
 
@@ -364,7 +363,6 @@ class OCApp(ctk.CTk):
     def apply_gpu_config(self):
         try:
             freqs = [int(pt["frequency"]) for pt in self.gpu_safe_points if pt["frequency"].isdigit()]
-            # GPU 가버너 최신 버전에 필요한 TOML 헤더 속성 추가
             toml = [
                 "[gpu]",
                 'set-method = "smu"',
