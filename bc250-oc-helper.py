@@ -8,10 +8,11 @@ import subprocess
 import tkinter as tk
 import customtkinter as ctk
 
-CONFIG_FILE = "/opt/bc250-oc-helper/config.txt"
+APP_NAME = "bc250-oc-helper"
+USER_CONFIG_FILE = os.path.expanduser(f"~/.config/{APP_NAME}/config.txt")
 ICON_FILE = "/opt/bc250-oc-helper/icon.png"
 GPU_CONFIG_PATH = "/etc/cyan-skillfish-governor-smu/config.toml"
-OVERCLOCK_CONF_FALLBACK = "/opt/bc250-oc-helper/overclock.conf"
+OVERCLOCK_CONF_FALLBACK = os.path.expanduser(f"~/.config/{APP_NAME}/overclock.conf")
 
 GEMINI_FONT_FAMILY = "sans-serif"
 
@@ -30,7 +31,7 @@ LANG = {
         "clk_mhz": "Clock (MHz)",
         "vol_mv": "Volt (mV)",
         "reboot": "Reboot",
-        "update": "Update"
+        "update": "Update",
     },
     "Korean": {
         "cpu_control": "CPU 제어",
@@ -46,8 +47,8 @@ LANG = {
         "clk_mhz": "클럭 (MHz)",
         "vol_mv": "전압 (mV)",
         "reboot": "재부팅",
-        "update": "업데이트"
-    }
+        "update": "업데이트",
+    },
 }
 
 BG_COLOR = ("#f0f4f9", "#131314")
@@ -89,7 +90,7 @@ def vid_predict(clock: int, scale: int) -> float:
 def nearest_scale_for_vid(clock: int, target_mv: int, scale_min: int, scale_max: int, current_scale: int) -> int:
     return min(
         range(scale_min, scale_max + 1),
-        key=lambda s: (abs(vid_predict(clock, s) - target_mv), abs(s - current_scale))
+        key=lambda s: (abs(vid_predict(clock, s) - target_mv), abs(s - current_scale)),
     )
 
 
@@ -97,8 +98,8 @@ class OCApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("BC-250 OC Helper")
-        self.geometry("1120x730")
-        self.minsize(980, 620)
+        self.geometry("1060x640")
+        self.minsize(940, 580)
 
         try:
             if os.path.exists(ICON_FILE):
@@ -147,6 +148,7 @@ class OCApp(ctk.CTk):
             p = os.path.join("/home", user, "bc250_smu_oc", "overclock.conf")
             if os.path.exists(os.path.dirname(p)):
                 return p
+        os.makedirs(os.path.dirname(OVERCLOCK_CONF_FALLBACK), exist_ok=True)
         return OVERCLOCK_CONF_FALLBACK
 
     def log(self, msg: str):
@@ -168,7 +170,7 @@ class OCApp(ctk.CTk):
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
-            bufsize=1
+            bufsize=1,
         )
 
         if p.stdout:
@@ -178,14 +180,14 @@ class OCApp(ctk.CTk):
         rc = p.wait()
         if rc != 0:
             if need_sudo and os.geteuid() != 0:
-                self.log("[HINT] sudoers NOPASSWD 설정이 필요할 수 있습니다.")
+                self.log("[HINT] sudoers NOPASSWD 설정 필요")
             raise RuntimeError(f"Command failed (exit={rc})")
         return rc
 
     def load_settings(self):
         try:
-            if os.path.exists(CONFIG_FILE):
-                with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+            if os.path.exists(USER_CONFIG_FILE):
+                with open(USER_CONFIG_FILE, "r", encoding="utf-8") as f:
                     for line in f:
                         if line.startswith("Language="):
                             self.settings["lang"] = line.strip().split("=", 1)[1]
@@ -196,205 +198,193 @@ class OCApp(ctk.CTk):
 
     def save_settings(self):
         try:
-            os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
-            with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+            os.makedirs(os.path.dirname(USER_CONFIG_FILE), exist_ok=True)
+            with open(USER_CONFIG_FILE, "w", encoding="utf-8") as f:
                 f.write(f"Language={self.settings['lang']}\n")
                 f.write(f"Theme={self.settings['theme']}\n")
         except Exception as e:
             self.log(f"[WARN] save_settings: {e}")
 
     def create_menu(self):
-        self.menu_frame = ctk.CTkFrame(self, height=50, corner_radius=25, fg_color=CARD_BG)
-        self.menu_frame.pack(side="top", fill="x", padx=20, pady=(15, 10))
+        self.menu_frame = ctk.CTkFrame(self, height=48, corner_radius=24, fg_color=CARD_BG)
+        self.menu_frame.pack(side="top", fill="x", padx=18, pady=(12, 8))
 
         self.lang_menu = ctk.CTkComboBox(
             self.menu_frame,
             values=["English", "Korean"],
             width=120,
-            corner_radius=25,
+            corner_radius=24,
             state="readonly",
             command=self.change_lang,
             font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13),
         )
         self.lang_menu.set(self.settings["lang"])
-        self.lang_menu.pack(side="left", padx=(15, 6), pady=10)
+        self.lang_menu.pack(side="left", padx=(12, 6), pady=8)
 
         self.theme_menu = ctk.CTkComboBox(
             self.menu_frame,
             values=["Dark", "Light"],
             width=100,
-            corner_radius=25,
+            corner_radius=24,
             state="readonly",
             command=self.change_theme,
             font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13),
         )
         self.theme_menu.set(self.settings["theme"])
-        self.theme_menu.pack(side="left", padx=6, pady=10)
+        self.theme_menu.pack(side="left", padx=6, pady=8)
 
         self.btn_update = ctk.CTkButton(
             self.menu_frame,
-            width=90,
-            corner_radius=25,
+            width=92,
+            corner_radius=24,
             command=self.update_app,
             font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13, weight="bold"),
         )
-        self.btn_update.pack(side="right", padx=(6, 15), pady=10)
+        self.btn_update.pack(side="right", padx=(6, 12), pady=8)
 
     def create_widgets(self):
         main = ctk.CTkFrame(self, fg_color="transparent")
-        main.pack(fill="both", expand=True, padx=20, pady=(10, 20))
+        main.pack(fill="both", expand=True, padx=18, pady=(8, 14))
 
-        main.grid_columnconfigure(0, weight=10, uniform="c")
-        main.grid_columnconfigure(1, weight=11, uniform="c")
-        main.grid_rowconfigure(0, weight=6)
-        main.grid_rowconfigure(1, weight=4)
+        main.grid_columnconfigure(0, weight=9, uniform="col")
+        main.grid_columnconfigure(1, weight=11, uniform="col")
+        main.grid_rowconfigure(0, weight=5)
+        main.grid_rowconfigure(1, weight=3)
 
-        # LEFT TOP: CPU
-        cpu_card = ctk.CTkFrame(main, corner_radius=20, fg_color=CARD_BG)
-        cpu_card.grid(row=0, column=0, sticky="nsew", padx=(0, 8), pady=(0, 8))
+        cpu_card = ctk.CTkFrame(main, corner_radius=18, fg_color=CARD_BG)
+        cpu_card.grid(row=0, column=0, sticky="nsew", padx=(0, 7), pady=(0, 7))
 
-        self.cpu_label = ctk.CTkLabel(cpu_card, text="", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=14, weight="bold"))
-        self.cpu_label.pack(anchor="w", padx=18, pady=(14, 6))
+        self.cpu_label = ctk.CTkLabel(cpu_card, text="", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=15, weight="bold"))
+        self.cpu_label.pack(anchor="w", padx=16, pady=(12, 6))
 
         cpu_grid = ctk.CTkFrame(cpu_card, fg_color="transparent")
-        cpu_grid.pack(fill="x", padx=18, pady=4)
+        cpu_grid.pack(fill="x", padx=16, pady=4)
         cpu_grid.grid_columnconfigure(3, weight=1)
 
         self.lbl_max_temp = ctk.CTkLabel(cpu_grid, text="")
         self.lbl_max_temp.grid(row=0, column=0, sticky="w", pady=8)
         self.cpu_temp_var = ctk.StringVar(value="90")
-        self.cpu_temp_entry = ctk.CTkEntry(cpu_grid, textvariable=self.cpu_temp_var, width=80, corner_radius=10, border_width=0, fg_color=ENTRY_BG, justify="center")
-        self.cpu_temp_entry.grid(row=0, column=1, padx=10, pady=8)
+        self.cpu_temp_entry = ctk.CTkEntry(cpu_grid, textvariable=self.cpu_temp_var, width=76, corner_radius=9, border_width=0, fg_color=ENTRY_BG, justify="center")
+        self.cpu_temp_entry.grid(row=0, column=1, padx=9, pady=8)
         ctk.CTkLabel(cpu_grid, text="°C").grid(row=0, column=2, sticky="w", pady=8)
 
         self.lbl_target_clk = ctk.CTkLabel(cpu_grid, text="")
         self.lbl_target_clk.grid(row=1, column=0, sticky="w", pady=8)
-        self.cpu_clk_var = ctk.StringVar(value="4000")
-        self.cpu_clk_entry = ctk.CTkEntry(cpu_grid, textvariable=self.cpu_clk_var, width=80, corner_radius=10, border_width=0, fg_color=ENTRY_BG, justify="center")
-        self.cpu_clk_entry.grid(row=1, column=1, padx=10, pady=8)
+        self.cpu_clk_var = ctk.StringVar(value="3500")
+        self.cpu_clk_entry = ctk.CTkEntry(cpu_grid, textvariable=self.cpu_clk_var, width=76, corner_radius=9, border_width=0, fg_color=ENTRY_BG, justify="center")
+        self.cpu_clk_entry.grid(row=1, column=1, padx=9, pady=8)
         ctk.CTkLabel(cpu_grid, text="MHz").grid(row=1, column=2, sticky="w", pady=8)
 
-        self.cpu_clk_slider = ctk.CTkSlider(cpu_grid, from_=1000, to=4500, corner_radius=15, command=self.on_cpu_clk_slider_move)
-        self.cpu_clk_slider.grid(row=1, column=3, sticky="ew", padx=12, pady=8)
+        self.cpu_clk_slider = ctk.CTkSlider(cpu_grid, from_=1000, to=4500, corner_radius=14, command=self.on_cpu_clk_slider_move)
+        self.cpu_clk_slider.grid(row=1, column=3, sticky="ew", padx=10, pady=8)
 
         self.lbl_target_vol = ctk.CTkLabel(cpu_grid, text="")
         self.lbl_target_vol.grid(row=2, column=0, sticky="w", pady=8)
         self.cpu_vol_var = ctk.StringVar(value="1.250")
-        self.cpu_vol_entry = ctk.CTkEntry(cpu_grid, textvariable=self.cpu_vol_var, width=80, corner_radius=10, border_width=0, fg_color=ENTRY_BG, justify="center")
-        self.cpu_vol_entry.grid(row=2, column=1, padx=10, pady=8)
+        self.cpu_vol_entry = ctk.CTkEntry(cpu_grid, textvariable=self.cpu_vol_var, width=76, corner_radius=9, border_width=0, fg_color=ENTRY_BG, justify="center")
+        self.cpu_vol_entry.grid(row=2, column=1, padx=9, pady=8)
         ctk.CTkLabel(cpu_grid, text="V").grid(row=2, column=2, sticky="w", pady=8)
 
-        self.cpu_vol_slider = ctk.CTkSlider(cpu_grid, from_=0.800, to=1.325, corner_radius=15, command=self.on_cpu_slider_move)
-        self.cpu_vol_slider.grid(row=2, column=3, sticky="ew", padx=12, pady=8)
+        self.cpu_vol_slider = ctk.CTkSlider(cpu_grid, from_=0.800, to=1.325, corner_radius=14, command=self.on_cpu_slider_move)
+        self.cpu_vol_slider.grid(row=2, column=3, sticky="ew", padx=10, pady=8)
 
         cpu_btn = ctk.CTkFrame(cpu_card, fg_color="transparent")
-        cpu_btn.pack(fill="x", padx=18, pady=(6, 14))
-        self.btn_apply_cpu = ctk.CTkButton(cpu_btn, width=110, corner_radius=25, command=self.apply_cpu_oc)
-        self.btn_apply_cpu.pack(side="right", padx=(10, 0))
-        self.btn_find_vol = ctk.CTkButton(cpu_btn, width=120, corner_radius=25, fg_color=SEC_BTN_BG, hover_color=SEC_BTN_HOVER, text_color=TEXT_COLOR, command=self.run_cpu_detect)
+        cpu_btn.pack(fill="x", padx=16, pady=(6, 12))
+        self.btn_apply_cpu = ctk.CTkButton(cpu_btn, width=108, corner_radius=22, command=self.apply_cpu_oc)
+        self.btn_apply_cpu.pack(side="right", padx=(8, 0))
+        self.btn_find_vol = ctk.CTkButton(cpu_btn, width=108, corner_radius=22, fg_color=SEC_BTN_BG, hover_color=SEC_BTN_HOVER, text_color=TEXT_COLOR, command=self.run_cpu_detect)
         self.btn_find_vol.pack(side="right")
 
-        # LEFT BOTTOM: INTERNAL TERMINAL
-        term_card = ctk.CTkFrame(main, corner_radius=20, fg_color=CARD_BG)
-        term_card.grid(row=1, column=0, sticky="nsew", padx=(0, 8), pady=(8, 0))
+        term_card = ctk.CTkFrame(main, corner_radius=18, fg_color=CARD_BG)
+        term_card.grid(row=1, column=0, sticky="nsew", padx=(0, 7), pady=(7, 0))
 
-        self.term_label = ctk.CTkLabel(term_card, text="", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=14, weight="bold"))
-        self.term_label.pack(anchor="w", padx=12, pady=(10, 6))
+        self.term_label = ctk.CTkLabel(term_card, text="", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=15, weight="bold"))
+        self.term_label.pack(anchor="w", padx=16, pady=(10, 6))
 
         self.term_box = ctk.CTkTextbox(term_card, wrap="word")
-        self.term_box.pack(fill="both", expand=True, padx=12, pady=(0, 12))
+        self.term_box.pack(fill="both", expand=True, padx=12, pady=(0, 10))
         self.term_box.configure(state="disabled")
 
-        # RIGHT: GPU FULL HEIGHT
-        self.gpu_card = ctk.CTkFrame(main, corner_radius=20, fg_color=CARD_BG)
-        self.gpu_card.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=(8, 0), pady=0)
+        self.gpu_card = ctk.CTkFrame(main, corner_radius=18, fg_color=CARD_BG)
+        self.gpu_card.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=(7, 0), pady=0)
 
-        self.gpu_label = ctk.CTkLabel(self.gpu_card, text="", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=14, weight="bold"))
-        self.gpu_label.pack(anchor="w", padx=20, pady=(14, 6))
+        self.gpu_label = ctk.CTkLabel(self.gpu_card, text="", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=15, weight="bold"))
+        self.gpu_label.pack(anchor="w", padx=16, pady=(12, 6))
 
-        # GPU top split: left temperature, right safe-points table
         gpu_top = ctk.CTkFrame(self.gpu_card, fg_color="transparent")
-        gpu_top.pack(side="top", fill="both", expand=True, padx=15, pady=6)
+        gpu_top.pack(side="top", fill="both", expand=True, padx=12, pady=4)
         gpu_top.grid_columnconfigure(0, weight=4)
         gpu_top.grid_columnconfigure(1, weight=6)
         gpu_top.grid_rowconfigure(0, weight=1)
 
         temp_frame = ctk.CTkFrame(gpu_top, fg_color="transparent")
-        temp_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 8), pady=0)
+        temp_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
 
         self.lbl_throttling = ctk.CTkLabel(temp_frame, text="")
-        self.lbl_throttling.grid(row=0, column=0, sticky="w", pady=6)
+        self.lbl_throttling.grid(row=0, column=0, sticky="w", pady=7)
         self.gpu_throt_var = ctk.StringVar(value="90")
-        ctk.CTkEntry(temp_frame, textvariable=self.gpu_throt_var, width=72, corner_radius=10, border_width=0, fg_color=ENTRY_BG, justify="center").grid(row=0, column=1, padx=10, pady=6)
-        ctk.CTkLabel(temp_frame, text="°C").grid(row=0, column=2, sticky="w", pady=6)
+        ctk.CTkEntry(temp_frame, textvariable=self.gpu_throt_var, width=72, corner_radius=9, border_width=0, fg_color=ENTRY_BG, justify="center").grid(row=0, column=1, padx=8, pady=7)
+        ctk.CTkLabel(temp_frame, text="°C").grid(row=0, column=2, sticky="w", pady=7)
 
         self.lbl_recovery = ctk.CTkLabel(temp_frame, text="")
-        self.lbl_recovery.grid(row=1, column=0, sticky="w", pady=6)
+        self.lbl_recovery.grid(row=1, column=0, sticky="w", pady=7)
         self.gpu_recov_var = ctk.StringVar(value="85")
-        ctk.CTkEntry(temp_frame, textvariable=self.gpu_recov_var, width=72, corner_radius=10, border_width=0, fg_color=ENTRY_BG, justify="center").grid(row=1, column=1, padx=10, pady=6)
-        ctk.CTkLabel(temp_frame, text="°C").grid(row=1, column=2, sticky="w", pady=6)
+        ctk.CTkEntry(temp_frame, textvariable=self.gpu_recov_var, width=72, corner_radius=9, border_width=0, fg_color=ENTRY_BG, justify="center").grid(row=1, column=1, padx=8, pady=7)
+        ctk.CTkLabel(temp_frame, text="°C").grid(row=1, column=2, sticky="w", pady=7)
 
         table_wrap = ctk.CTkFrame(gpu_top, fg_color="transparent")
-        table_wrap.grid(row=0, column=1, sticky="nsew", padx=(8, 0), pady=0)
+        table_wrap.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
         table_wrap.grid_columnconfigure(0, weight=1)
         table_wrap.grid_rowconfigure(1, weight=1)
 
         list_label = ctk.CTkFrame(table_wrap, fg_color="transparent")
         list_label.grid(row=0, column=0, sticky="ew", pady=(0, 4))
-        list_label.grid_columnconfigure(0, weight=1)
-        list_label.grid_columnconfigure(1, weight=1)
+        list_label.grid_columnconfigure(0, minsize=92)
+        list_label.grid_columnconfigure(1, minsize=92)
+        list_label.grid_columnconfigure(2, minsize=40)
+        list_label.grid_columnconfigure(3, minsize=40)
 
-        self.lbl_clk_head = ctk.CTkLabel(list_label, text="")
-        self.lbl_clk_head.grid(row=0, column=0, sticky="w", padx=5)
-        self.lbl_vol_head = ctk.CTkLabel(list_label, text="")
-        self.lbl_vol_head.grid(row=0, column=1, sticky="w", padx=5)
+        self.lbl_clk_head = ctk.CTkLabel(list_label, text="", anchor="w")
+        self.lbl_clk_head.grid(row=0, column=0, sticky="w", padx=4)
+        self.lbl_vol_head = ctk.CTkLabel(list_label, text="", anchor="w")
+        self.lbl_vol_head.grid(row=0, column=1, sticky="w", padx=4)
 
-        self.points_container = ctk.CTkScrollableFrame(table_wrap, fg_color="transparent", corner_radius=12)
+        self.points_container = ctk.CTkScrollableFrame(table_wrap, fg_color="transparent", corner_radius=10)
         self.points_container.grid(row=1, column=0, sticky="nsew")
+        self.points_container.grid_columnconfigure(0, minsize=92)
+        self.points_container.grid_columnconfigure(1, minsize=92)
+        self.points_container.grid_columnconfigure(2, minsize=40)
+        self.points_container.grid_columnconfigure(3, minsize=40)
 
         gpu_btn = ctk.CTkFrame(self.gpu_card, fg_color="transparent")
-        gpu_btn.pack(side="bottom", fill="x", padx=20, pady=(6, 14))
-        self.btn_apply_gpu = ctk.CTkButton(gpu_btn, width=100, corner_radius=25, command=self.apply_gpu_config)
-        self.btn_apply_gpu.pack(side="right", padx=(10, 0))
-        self.btn_reboot = ctk.CTkButton(gpu_btn, width=100, corner_radius=25, fg_color=("#d9534f", "#c9302c"), hover_color=("#c9302c", "#a01e1e"), command=self.reboot_system)
+        gpu_btn.pack(side="bottom", fill="x", padx=16, pady=(6, 12))
+        self.btn_apply_gpu = ctk.CTkButton(gpu_btn, width=104, corner_radius=22, command=self.apply_gpu_config)
+        self.btn_apply_gpu.pack(side="right", padx=(8, 0))
+        self.btn_reboot = ctk.CTkButton(gpu_btn, width=104, corner_radius=22, fg_color=("#d9534f", "#c9302c"), hover_color=("#c9302c", "#a01e1e"), command=self.reboot_system)
         self.btn_reboot.pack(side="right")
 
     def change_theme(self, new_theme):
         self.settings["theme"] = new_theme
         self.save_settings()
         ctk.set_appearance_mode(new_theme)
-        self.lang_menu.configure(
-            fg_color=SEC_BTN_BG,
-            button_color=SEC_BTN_BG,
-            button_hover_color=SEC_BTN_HOVER,
-            text_color=TEXT_COLOR,
-            border_width=0,
-            dropdown_fg_color=CARD_BG
-        )
-        self.theme_menu.configure(
-            fg_color=SEC_BTN_BG,
-            button_color=SEC_BTN_BG,
-            button_hover_color=SEC_BTN_HOVER,
-            text_color=TEXT_COLOR,
-            border_width=0,
-            dropdown_fg_color=CARD_BG
-        )
+        self.lang_menu.configure(fg_color=SEC_BTN_BG, button_color=SEC_BTN_BG, button_hover_color=SEC_BTN_HOVER, text_color=TEXT_COLOR, border_width=0, dropdown_fg_color=CARD_BG)
+        self.theme_menu.configure(fg_color=SEC_BTN_BG, button_color=SEC_BTN_BG, button_hover_color=SEC_BTN_HOVER, text_color=TEXT_COLOR, border_width=0, dropdown_fg_color=CARD_BG)
         self.btn_update.configure(fg_color=SEC_BTN_BG, hover_color=SEC_BTN_HOVER, text_color=TEXT_COLOR)
 
     def change_lang(self, lang_name):
         self.settings["lang"] = lang_name
         self.save_settings()
         t = LANG[lang_name]
-        self.cpu_label.configure(text=t["cpu_control"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=14, weight="bold"))
-        self.gpu_label.configure(text=t["gpu_control"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=14, weight="bold"))
-        self.term_label.configure(text=t["terminal"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=14, weight="bold"))
+        self.cpu_label.configure(text=t["cpu_control"])
+        self.gpu_label.configure(text=t["gpu_control"])
+        self.term_label.configure(text=t["terminal"])
         self.lbl_max_temp.configure(text=t["max_temp"])
         self.lbl_target_clk.configure(text=t["target_clk"])
         self.lbl_target_vol.configure(text=t["target_vol"])
-        self.btn_find_vol.configure(text=t["find_vol"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13, weight="bold"))
-        self.btn_apply_cpu.configure(text=t["apply"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13, weight="bold"))
-        self.btn_apply_gpu.configure(text=t["apply"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13, weight="bold"))
-        self.btn_reboot.configure(text=t["reboot"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13, weight="bold"))
+        self.btn_find_vol.configure(text=t["find_vol"])
+        self.btn_apply_cpu.configure(text=t["apply"])
+        self.btn_apply_gpu.configure(text=t["apply"])
+        self.btn_reboot.configure(text=t["reboot"])
         self.btn_update.configure(text=t["update"])
         self.lbl_throttling.configure(text=t["throttling"])
         self.lbl_recovery.configure(text=t["recovery"])
@@ -407,7 +397,7 @@ class OCApp(ctk.CTk):
             target = "/opt/bc250-oc-helper/bc250-oc-helper.py"
             temp = "/tmp/bc250-oc-helper-update.py"
             self.run_cmd_live(["curl", "-sSL", "-o", temp, url], need_sudo=False)
-            self.run_cmd_live(["mv", temp, target], need_sudo=True)
+            self.run_cmd_live(["cp", temp, target], need_sudo=True)
             self.run_cmd_live(["chmod", "+x", target], need_sudo=True)
             self.log("[OK] Updated. Restarting...")
             os.execv(sys.executable, [sys.executable, target])
@@ -466,7 +456,7 @@ class OCApp(ctk.CTk):
                 "--vid", str(mv),
                 "-t", str(temp),
                 "--keep",
-                "-c", self.overclock_conf_path
+                "-c", self.overclock_conf_path,
             ]
             self.run_cmd_live(cmd, need_sudo=True)
             self.load_cpu_config()
@@ -483,14 +473,7 @@ class OCApp(ctk.CTk):
             temp = int(self.cpu_temp_var.get())
             target_mv = parse_volt_to_mv(self.cpu_vol_var.get())
 
-            scale = nearest_scale_for_vid(
-                clock=mhz,
-                target_mv=target_mv,
-                scale_min=self.scale_min,
-                scale_max=self.scale_max,
-                current_scale=self.current_scale
-            )
-
+            scale = nearest_scale_for_vid(mhz, target_mv, self.scale_min, self.scale_max, self.current_scale)
             pred_mv = vid_predict(mhz, scale)
 
             os.makedirs(os.path.dirname(self.overclock_conf_path), exist_ok=True)
@@ -509,7 +492,6 @@ class OCApp(ctk.CTk):
             v = max(0.800, min(1.325, pred_mv / 1000.0))
             self.cpu_vol_var.set(f"{v:.3f}")
             self.cpu_vol_slider.set(v)
-
             self.log(f"[OK] Applied CPU: {mhz} MHz, target={target_mv} mV, scale={scale}, predicted={pred_mv:.1f} mV")
         except Exception as e:
             self.log(f"[ERROR] Apply CPU failed: {e}")
@@ -548,36 +530,41 @@ class OCApp(ctk.CTk):
             widget.destroy()
 
         for i, pt in enumerate(self.gpu_safe_points):
-            f_entry = ctk.CTkEntry(
-                self.points_container, width=88, corner_radius=10, border_width=0,
-                fg_color=ENTRY_BG, justify="center"
-            )
+            f_entry = ctk.CTkEntry(self.points_container, width=88, corner_radius=9, border_width=0, fg_color=ENTRY_BG, justify="center")
             f_entry.insert(0, pt["frequency"])
-            f_entry.grid(row=i, column=0, padx=5, pady=3, sticky="w")
+            f_entry.grid(row=i, column=0, padx=(4, 4), pady=3, sticky="w")
             f_entry.bind("<FocusOut>", lambda e, idx=i, ent=f_entry: self.update_gpu_val(idx, "frequency", ent.get()))
 
-            v_entry = ctk.CTkEntry(
-                self.points_container, width=88, corner_radius=10, border_width=0,
-                fg_color=ENTRY_BG, justify="center"
-            )
+            v_entry = ctk.CTkEntry(self.points_container, width=88, corner_radius=9, border_width=0, fg_color=ENTRY_BG, justify="center")
             v_entry.insert(0, pt["voltage"])
-            v_entry.grid(row=i, column=1, padx=5, pady=3, sticky="w")
+            v_entry.grid(row=i, column=1, padx=(4, 4), pady=3, sticky="w")
             v_entry.bind("<FocusOut>", lambda e, idx=i, ent=v_entry: self.update_gpu_val(idx, "voltage", ent.get()))
 
-            btn_frame = ctk.CTkFrame(self.points_container, fg_color="transparent")
-            btn_frame.grid(row=i, column=2, padx=2, pady=3, sticky="w")
+            plus_btn = ctk.CTkButton(
+                self.points_container,
+                text="+",
+                width=34,
+                height=30,
+                corner_radius=15,
+                fg_color=SEC_BTN_BG,
+                hover_color=SEC_BTN_HOVER,
+                text_color=TEXT_COLOR,
+                command=lambda idx=i: self.add_gpu_row(idx),
+            )
+            plus_btn.grid(row=i, column=2, padx=(2, 2), pady=3, sticky="w")
 
-            ctk.CTkButton(
-                btn_frame, text="+", width=34, height=34, corner_radius=17,
-                fg_color=SEC_BTN_BG, hover_color=SEC_BTN_HOVER, text_color=TEXT_COLOR,
-                command=lambda idx=i: self.add_gpu_row(idx)
-            ).pack(side="left", padx=3)
-
-            ctk.CTkButton(
-                btn_frame, text="−", width=34, height=34, corner_radius=17,
-                fg_color=SEC_BTN_BG, hover_color=SEC_BTN_HOVER, text_color=TEXT_COLOR,
-                command=lambda idx=i: self.remove_gpu_row(idx)
-            ).pack(side="left", padx=3)
+            minus_btn = ctk.CTkButton(
+                self.points_container,
+                text="−",
+                width=34,
+                height=30,
+                corner_radius=15,
+                fg_color=SEC_BTN_BG,
+                hover_color=SEC_BTN_HOVER,
+                text_color=TEXT_COLOR,
+                command=lambda idx=i: self.remove_gpu_row(idx),
+            )
+            minus_btn.grid(row=i, column=3, padx=(2, 2), pady=3, sticky="w")
 
     def update_gpu_val(self, idx, key, val):
         self.gpu_safe_points[idx][key] = val.strip()
