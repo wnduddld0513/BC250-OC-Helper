@@ -1,13 +1,12 @@
 #!/bin/bash
 
 echo "========================================================="
-echo " BC-250 OC Helper 및 Core Governor 설치를 시작합니다... "
+echo " Starting BC-250 OC Helper installation..."
 echo "========================================================="
 
-# 실제 명령을 내린 유저 확인 (AUR 헬퍼는 root로 실행 불가)
 REAL_USER="${SUDO_USER:-$(logname 2>/dev/null || whoami)}"
+REAL_HOME="$(eval echo "~${REAL_USER}")"
 
-# AUR 헬퍼 감지 함수
 get_aur_helper() {
     if command -v paru >/dev/null 2>&1; then echo "paru"
     elif command -v yay >/dev/null 2>&1; then echo "yay"
@@ -15,17 +14,25 @@ get_aur_helper() {
     else return 1; fi
 }
 
-# 1. 필수 시스템 패키지 설치
-echo -e "\n[1/8] 필수 시스템 패키지 및 파이썬 모듈을 설치합니다."
-sudo pacman -S --needed python python-pip python-pillow curl git python-pipx stress --noconfirm
-sudo python -m pip install customtkinter --break-system-packages
+# 1. System packages
+echo -e "\n[1/9] Checking required system packages..."
+sudo pacman -S --needed --noconfirm python python-pip python-pillow curl git python-pipx stress
 
-# 2. CPU 가버너 설치 (bc250-collective/bc250_smu_oc)
-echo -e "\n[2/8] CPU 가버너 설치 여부를 확인합니다."
-if systemctl list-unit-files | grep -q 'bc250-smu-oc.service' || command -v bc250-apply &>/dev/null || sudo pipx list 2>/dev/null | grep -q 'bc250-smu-oc'; then
-    echo "  -> ✔ 이미 설치되어 있습니다 (건너뜀)."
+# 2. Python library
+echo -e "\n[2/9] Checking Python module installation..."
+if python3 -c "import customtkinter" &>/dev/null; then
+    echo "  -> ✔ customtkinter is already installed (Skipped)."
 else
-    echo "  -> ⚠ CPU 가버너가 없습니다. GitHub 원본에서 설치를 진행합니다..."
+    echo "  -> ⚠ Installing customtkinter..."
+    sudo python3 -m pip install customtkinter --break-system-packages
+fi
+
+# 3. CPU Governor
+echo -e "\n[3/9] Checking CPU governor installation..."
+if systemctl list-unit-files | grep -q 'bc250-smu-oc.service' || command -v bc250-apply &>/dev/null || sudo pipx list 2>/dev/null | grep -q 'bc250-smu-oc'; then
+    echo "  -> ✔ Already installed (Skipped)."
+else
+    echo "  -> ⚠ CPU governor not found. Installing from GitHub..."
     cd /tmp
     rm -rf bc250_smu_oc
     git clone https://github.com/bc250-collective/bc250_smu_oc.git
@@ -33,7 +40,6 @@ else
     sudo pipx install .
     sudo pipx ensurepath || true
     
-    # GUI 툴에서 절대 경로 없이 접근할 수 있도록 공용 경로에 링크 생성
     sudo ln -sf /root/.local/bin/bc250-detect /usr/local/bin/bc250-detect
     sudo ln -sf /root/.local/bin/bc250-apply /usr/local/bin/bc250-apply
     
@@ -41,33 +47,32 @@ else
     sudo bc250-detect --frequency 3500 --vid 1000 --keep
     sudo bc250-apply --install overclock.conf
     sudo systemctl enable bc250-smu-oc
-    echo "  -> ✔ CPU 가버너 설치 및 서비스 등록 완료."
+    echo "  -> ✔ CPU governor installed and service enabled."
 fi
 
-# 3. GPU 가버너 설치 (filippor/cyan-skillfish-governor)
-echo -e "\n[3/8] GPU 가버너 설치 여부를 확인합니다."
+# 4. GPU Governor
+echo -e "\n[4/9] Checking GPU governor installation..."
 if systemctl list-unit-files | grep -q 'cyan-skillfish-governor-smu.service' || command -v cyan-skillfish-governor-smu &>/dev/null; then
-    echo "  -> ✔ 이미 설치되어 있습니다 (건너뜀)."
+    echo "  -> ✔ Already installed (Skipped)."
 else
-    echo "  -> ⚠ GPU 가버너가 없습니다. 설치를 진행합니다..."
+    echo "  -> ⚠ GPU governor not found. Installing..."
     AUR_HELPER=$(get_aur_helper)
     if [ -z "$AUR_HELPER" ]; then
-        echo "  -> ✘ [오류] paru, yay 등의 AUR 헬퍼가 설치되어 있지 않아 자동 설치를 진행할 수 없습니다."
-        echo "  -> 수동으로 소스(cargo)를 빌드하거나 AUR 헬퍼를 설치해 주세요."
+        echo "  -> ✘ [Error] No AUR helper found. Skipping GPU governor install."
     else
-        echo "  -> $AUR_HELPER 헬퍼를 사용하여 공식 패키지를 빌드/설치합니다..."
+        echo "  -> Using ${AUR_HELPER} to build/install official package..."
         sudo -u "$REAL_USER" $AUR_HELPER -S --noconfirm cyan-skillfish-governor-smu
         sudo systemctl enable --now cyan-skillfish-governor-smu.service
-        echo "  -> ✔ GPU 가버너 설치 및 서비스 시작 완료."
+        echo "  -> ✔ GPU governor installed and service started."
     fi
 fi
 
-# 4. 프로그램 폴더 생성 (오타 수정: /opt/bc250-oc-helper)
-echo -e "\n[4/8] GUI 툴 프로그램 폴더를 생성합니다."
+# 5. App Directory
+echo -e "\n[5/9] Creating application directory..."
 sudo mkdir -p /opt/bc250-oc-helper
 
-# 5. 파이썬 스크립트 복사 또는 원격 다운로드
-echo -e "\n[5/8] 최신 버전의 OC Helper 툴을 다운로드합니다."
+# 6. Python script download
+echo -e "\n[6/9] Downloading latest OC Helper script..."
 if [ -f "./bc250-oc-helper.py" ]; then
     sudo cp ./bc250-oc-helper.py /opt/bc250-oc-helper/bc250-oc-helper.py
 else
@@ -75,49 +80,46 @@ else
 fi
 sudo chmod +x /opt/bc250-oc-helper/bc250-oc-helper.py
 
-# 6. G-Helper 스타일 전용 고해상도 아이콘 생성
-echo -e "\n[6/8] 전용 바로가기 아이콘을 생성합니다."
-sudo python -c "
+# 7. Icon creation
+echo -e "\n[7/9] Creating application icon..."
+sudo python3 -c "
 from PIL import Image, ImageDraw
 img = Image.new('RGBA', (512, 512), (0,0,0,0))
 draw = ImageDraw.Draw(img)
 draw.ellipse([20, 20, 492, 492], fill='#3daee9')
 try:
     draw.text((256, 240), 'B', fill='#ffffff', font_size=280, anchor='mm')
-except Exception:
-    pass
+except Exception: pass
 img.save('/opt/bc250-oc-helper/icon.png')
 "
 
-# 7. 시스템 유틸리티 메뉴 등록
-echo -e "\n[7/8] 시스템 메뉴에 앱을 등록합니다."
+# 8. Desktop entry
+echo -e "\n[8/9] Registering in system menu..."
 sudo tee /usr/share/applications/bc250-oc-helper.desktop > /dev/null <<EOF
 [Desktop Entry]
 Type=Application
 Name=BC-250 OC Helper
 Comment=simple gui bc-250 overclock tool
-Exec=sudo python /opt/bc250-oc-helper/bc250-oc-helper.py
+Exec=sudo python3 /opt/bc250-oc-helper/bc250-oc-helper.py
 Icon=/opt/bc250-oc-helper/icon.png
-Terminal=true
+Terminal=false
 Categories=Utility;System;
 EOF
 
-# 8. 바탕화면(Desktop) 바로가기 추가
-echo -e "\n[8/8] 바탕화면에 바로가기를 생성합니다."
-USER_HOME=$(eval echo ~$REAL_USER)
-DESKTOP_DIR="$USER_HOME/Desktop"
-[ -d "$USER_HOME/바탕화면" ] && DESKTOP_DIR="$USER_HOME/바탕화면"
+# 9. Desktop shortcut
+echo -e "\n[9/9] Creating desktop shortcut..."
+DESKTOP_DIR="$(xdg-user-dir DESKTOP 2>/dev/null || echo "${REAL_HOME}/Desktop")"
 
 if [ -d "$DESKTOP_DIR" ]; then
     sudo cp /usr/share/applications/bc250-oc-helper.desktop "$DESKTOP_DIR/"
     sudo chown $REAL_USER:$REAL_USER "$DESKTOP_DIR/bc250-oc-helper.desktop"
     sudo chmod +x "$DESKTOP_DIR/bc250-oc-helper.desktop"
-    echo "  -> ✔ 바탕화면 바로가기 생성 완료."
+    echo "  -> ✔ Desktop shortcut created."
 else
-    echo "  -> ⚠ 바탕화면 폴더를 찾을 수 없어 바로가기 생성은 건너뜁니다."
+    echo "  -> ⚠ Desktop directory not found. Skipping shortcut creation."
 fi
 
 echo "========================================================="
-echo " 설치가 모두 완료되었습니다!"
-echo " 바탕화면이나 시스템 유틸리티 메뉴에서 'BC-250 OC Helper'를 실행하세요."
+echo " Installation completed successfully!"
+echo " Launch 'BC-250 OC Helper' from your app menu or desktop."
 echo "========================================================="
