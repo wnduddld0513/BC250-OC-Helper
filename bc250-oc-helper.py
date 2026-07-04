@@ -64,12 +64,12 @@ class OCApp(ctk.CTk):
         
         self.gpu_safe_points = []
         self.config_toml_path = "/etc/cyan-skillfish-governor-smu/config.toml"
-        self.overclock_conf_path = "overclock.conf"
+        # 오버클럭 설정 파일이 프로그램 폴더 안에 깔끔하게 저장되도록 절대 경로 지정
+        self.overclock_conf_path = "/opt/bc250-oc-helper/overclock.conf"
         
         self.settings = {"lang": "English", "theme": "Dark"}
         self.load_settings()
         
-        # 테마 엔진 초기화
         ctk.set_appearance_mode(self.settings["theme"])
         ctk.set_default_color_theme("blue")
         
@@ -97,7 +97,6 @@ class OCApp(ctk.CTk):
             pass
 
     def create_menu(self):
-        # 시스템 다크모드 완벽 연동용 상단 프레임바
         menu_frame = ctk.CTkFrame(self, height=35, corner_radius=0)
         menu_frame.pack(side="top", fill="x")
         
@@ -142,7 +141,6 @@ class OCApp(ctk.CTk):
         self.theme_btn.configure(text="테마" if lang_name == "Korean" else "Theme")
 
     def create_widgets(self):
-        # --- CPU 카드형 레이아웃 ---
         cpu_card = ctk.CTkFrame(self)
         cpu_card.pack(side="top", fill="x", padx=15, pady=10)
         
@@ -153,7 +151,6 @@ class OCApp(ctk.CTk):
         cpu_grid.pack(fill="x", padx=15, pady=5)
         cpu_grid.columnconfigure(3, weight=1)
 
-        # 최대 온도
         self.lbl_max_temp = ctk.CTkLabel(cpu_grid, text="")
         self.lbl_max_temp.grid(row=0, column=0, sticky="w", pady=5)
         self.cpu_temp_var = ctk.StringVar(value="90")
@@ -161,7 +158,6 @@ class OCApp(ctk.CTk):
         self.cpu_temp_entry.grid(row=0, column=1, padx=5, pady=5)
         ctk.CTkLabel(cpu_grid, text="°C").grid(row=0, column=2, sticky="w", pady=5)
 
-        # 목표 클럭
         self.lbl_target_clk = ctk.CTkLabel(cpu_grid, text="")
         self.lbl_target_clk.grid(row=1, column=0, sticky="w", pady=5)
         self.cpu_clk_var = ctk.StringVar(value="4000")
@@ -172,7 +168,6 @@ class OCApp(ctk.CTk):
         self.cpu_clk_slider = ctk.CTkSlider(cpu_grid, from_=1000, to=4500, command=self.on_cpu_clk_slider_move)
         self.cpu_clk_slider.grid(row=1, column=3, sticky="ew", padx=10, pady=5)
 
-        # 목표 전압
         self.lbl_target_vol = ctk.CTkLabel(cpu_grid, text="")
         self.lbl_target_vol.grid(row=2, column=0, sticky="w", pady=5)
         self.cpu_vol_var = ctk.StringVar(value="1.250")
@@ -190,7 +185,6 @@ class OCApp(ctk.CTk):
         self.btn_find_vol = ctk.CTkButton(cpu_btn_frame, width=90, fg_color="#444444", hover_color="#555555", command=self.run_cpu_detect)
         self.btn_find_vol.pack(side="right", padx=(0, 5))
 
-        # --- GPU 카드형 레이아웃 ---
         self.gpu_card = ctk.CTkFrame(self)
         self.gpu_card.pack(side="top", fill="both", expand=True, padx=15, pady=(0, 15))
         
@@ -229,14 +223,12 @@ class OCApp(ctk.CTk):
         self.lbl_vol_head = ctk.CTkLabel(list_label_frame)
         self.lbl_vol_head.grid(row=0, column=1, sticky="w", padx=5)
 
-        # 모던 스크롤 스크롤바 세트
         scroll_frame = ctk.CTkScrollableFrame(self.gpu_card, fg_color="transparent")
         scroll_frame.pack(side="top", fill="both", expand=True, padx=10, pady=5)
         scroll_frame.columnconfigure(0, minsize=105)
         scroll_frame.columnconfigure(1, minsize=105)
         self.points_container = scroll_frame
 
-    # --- 기존 제어 유틸리티 연동 기능 상속 ---
     def on_cpu_clk_slider_move(self, val):
         self.cpu_clk_var.set(str(int(val)))
 
