@@ -74,6 +74,9 @@ class OCApp(ctk.CTk):
         self.config_toml_path = "/etc/cyan-skillfish-governor-smu/config.toml"
         self.overclock_conf_path = "/opt/bc250-oc-helper/overclock.conf"
         
+        # 내부적으로 현재 시스템의 scale 값을 기억 (기본값 -30)
+        self.current_scale = -30
+        
         self.settings = {"lang": "English", "theme": "Dark"}
         self.load_settings()
         
@@ -123,7 +126,6 @@ class OCApp(ctk.CTk):
         self.theme_menu.set(self.settings["theme"])
         self.theme_menu.pack(side="left", padx=5, pady=10)
         
-        # [신규 기능] 자체 업데이트 버튼 (우측 정렬)
         self.btn_update = ctk.CTkButton(self.menu_frame, width=90, corner_radius=25, command=self.update_app, font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13, weight="bold"))
         self.btn_update.pack(side="right", padx=(5, 15), pady=10)
 
@@ -159,20 +161,15 @@ class OCApp(ctk.CTk):
         self.lbl_vol_head.configure(text=t["vol_mv"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12))
 
     def update_app(self):
-        # 깃허브에서 파이썬 코드를 새로 받고 현재 실행중인 프로그램을 교체 후 재시작하는 로직
         try:
             url = "https://raw.githubusercontent.com/wnduddld0513/BC250-OC-Helper/main/bc250-oc-helper.py"
             target_path = "/opt/bc250-oc-helper/bc250-oc-helper.py"
             temp_path = "/tmp/bc250-oc-helper-update.py"
             
-            # 임시 경로에 최신버전 다운로드
             subprocess.run(["curl", "-sSL", "-o", temp_path, url], check=True)
-            
-            # 파일 바꿔치기 및 권한 부여
             subprocess.run(["sudo", "mv", temp_path, target_path], check=True)
             subprocess.run(["sudo", "chmod", "+x", target_path], check=True)
             
-            # 파이썬 스크립트 자기 자신을 재시작
             os.execv(sys.executable, [sys.executable, target_path])
         except Exception as e:
             print(f"Update failed: {e}")
@@ -181,7 +178,7 @@ class OCApp(ctk.CTk):
         main_wrapper = ctk.CTkFrame(self, fg_color="transparent")
         main_wrapper.pack(fill="both", expand=True, padx=20, pady=(10, 20))
 
-        # --- CPU 영역 ---
+        # --- CPU ---
         cpu_card = ctk.CTkFrame(main_wrapper, corner_radius=20, fg_color=CARD_BG)
         cpu_card.pack(side="top", fill="x", pady=(0, 15))
         
@@ -229,7 +226,7 @@ class OCApp(ctk.CTk):
         self.btn_apply_cpu.configure(command=self.apply_cpu_oc)
         self.btn_find_vol.configure(command=self.run_cpu_detect)
 
-        # --- GPU 영역 ---
+        # --- GPU ---
         self.gpu_card = ctk.CTkFrame(main_wrapper, corner_radius=20, fg_color=CARD_BG)
         self.gpu_card.pack(side="top", fill="both", expand=True)
         
@@ -281,41 +278,54 @@ class OCApp(ctk.CTk):
         self.cpu_vol_var.set(f"{val:.3f}")
 
     def load_cpu_config(self):
+        # 기본 scale 값 (설정 파일에 없을 경우 대비)
+        self.current_scale = -30
+        
         if os.path.exists(self.overclock_conf_path):
             with open(self.overclock_conf_path, "r") as f:
                 content = f.read()
                 f_match = re.search(r"frequency\s*=\s*(\d+)", content)
-                v_match = re.search(r"(?:vid|scale)\s*=\s*(-?\d+)", content)
+                s_match = re.search(r"scale\s*=\s*(-?\d+)", content)
                 t_match = re.search(r"max_temperature\s*=\s*(\d+)", content)
+                
                 if f_match:
                     self.cpu_clk_var.set(f_match.group(1))
                     self.cpu_clk_slider.set(int(f_match.group(1)))
-                if v_match:
-                    raw_val = float(v_match.group(1))
-                    if raw_val >= 800:
-                        self.cpu_vol_var.set(f"{raw_val / 1000.0:.3f}")
-                        self.cpu_vol_slider.set(raw_val / 1000.0)
-                if t_match: self.cpu_temp_var.set(t_match.group(1))
+                if s_match:
+                    # 파일에서 읽은 최신 scale 값을 메모리에 보존
+                    self.current_scale = int(s_match.group(1))
+                if t_match: 
+                    self.cpu_temp_var.set(t_match.group(1))
 
     def run_cpu_detect(self):
         try:
             mhz = int(self.cpu_clk_var.get())
             mv = int(float(self.cpu_vol_var.get()) * 1000)
-            subprocess.run(["sudo", "/root/.local/bin/bc250-detect", "--frequency", str(mhz), "--vid", str(mv), "--keep", "-c", self.overclock_conf_path], check=True)
+            temp = int(self.cpu_temp_var.get())
+            
+            # Detect 실행: 스트레스 테스트를 통해 최적의 scale 값을 찾고 파일에 저장함
+            detect_cmd = ["sudo", "bc250-detect", "--frequency", str(mhz), "--vid", str(mv), "-t", str(temp), "--keep", "-c", self.overclock_conf_path]
+            subprocess.run(detect_cmd, check=True)
+            
+            # Detect로 인해 새로 써진 파일에서 scale 값을 다시 읽어들임
             self.load_cpu_config()
+            
         except Exception as e: print(e)
 
     def apply_cpu_oc(self):
         try:
             mhz = int(self.cpu_clk_var.get())
-            mv = int(float(self.cpu_vol_var.get()) * 1000)
             temp = int(self.cpu_temp_var.get())
+            # Detect로 찾았거나 이전에 로드해둔 scale 값을 그대로 사용
+            scale = getattr(self, 'current_scale', -30)
             
-            detect_cmd = ["sudo", "/root/.local/bin/bc250-detect", "--frequency", str(mhz), "--vid", str(mv), "-t", str(temp), "--keep", "-c", self.overclock_conf_path]
-            subprocess.run(detect_cmd, check=True)
+            # 텍스트 파일 직접 덮어쓰기
+            with open(self.overclock_conf_path, "w") as f:
+                f.write(f"[overclock]\nfrequency = {mhz}\nscale = {scale}\nmax_temperature = {temp}\n")
             
-            apply_cmd = ["sudo", "/root/.local/bin/bc250-apply", "--install", self.overclock_conf_path]
-            subprocess.run(apply_cmd, check=True)
+            # 테스트 과정 생략하고 즉시 서비스에 적용 및 재시작
+            subprocess.run(["sudo", "bc250-apply", "--install", self.overclock_conf_path], check=True)
+            subprocess.run(["sudo", "systemctl", "restart", "bc250-smu-oc"], check=True)
             
         except Exception as e: print(e)
 
@@ -396,4 +406,5 @@ class OCApp(ctk.CTk):
 
 if __name__ == "__main__":
     app = OCApp()
+    app.mainloop()
     app.mainloop()
