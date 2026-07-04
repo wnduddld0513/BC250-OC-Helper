@@ -74,7 +74,7 @@ echo -e "\n[5/7] 최신 버전의 OC Helper 툴을 다운로드합니다."
 if [ -f "./bc250-oc-helper.py" ]; then
     sudo cp ./bc250-oc-helper.py /opt/oci/bc250-oc-helper/bc250-oc-helper.py
 else
-    sudo curl -sSL -o /opt/oci/bc250-oc-helper/bc250-oc-helper.py https://raw.githubusercontent.com/wnduddld0513/BC-250-OC-Helper/main/bc250-oc-helper.py
+    sudo curl -sSL -o /opt/oci/bc250-oc-helper/bc250-oc-helper.py https://raw.githubusercontent.com/wnduddld0513/BC250-OC-Helper/main/bc250-oc-helper.py
 fi
 sudo chmod +x /opt/oci/bc250-oc-helper/bc250-oc-helper.py
 
