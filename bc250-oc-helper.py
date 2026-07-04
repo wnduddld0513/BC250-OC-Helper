@@ -96,7 +96,7 @@ class OCApp(ctk.CTk):
             pass
 
     def create_menu(self):
-        # 대안 메뉴 시스템 (시스템 다크모드 완벽 연동용 상단 프레임바)
+        # 시스템 다크모드 완벽 연동용 상단 프레임바
         menu_frame = ctk.CTkFrame(self, height=35, corner_radius=0)
         menu_frame.pack(side="top", fill="x")
         
@@ -271,7 +271,8 @@ class OCApp(ctk.CTk):
         try:
             mhz = int(self.cpu_clk_var.get())
             mv = int(float(self.cpu_vol_var.get()) * 1000)
-            subprocess.run(["sudo", "/root/.local/bin/bc250-detect", "--frequency", str(mhz), "--vid", str(mv), "--keep"], check=True)
+            # 절대 경로(/root/.local/bin/...) 제거: 이제 시스템 전역 명령어 bc250-detect 호출
+            subprocess.run(["sudo", "bc250-detect", "--frequency", str(mhz), "--vid", str(mv), "--keep"], check=True)
             self.load_cpu_config()
         except Exception as e: print(e)
 
@@ -282,7 +283,8 @@ class OCApp(ctk.CTk):
             temp = int(self.cpu_temp_var.get())
             with open(self.overclock_conf_path, "w") as f:
                 f.write(f"[overclock]\nfrequency={mhz}\nvid={mv}\nmax_temperature={temp}\nkeep=true\n")
-            subprocess.run(["sudo", "/root/.local/bin/bc250-apply", "--install", self.overclock_conf_path], check=True)
+            # 절대 경로 제거: bc250-apply 명령어 호출
+            subprocess.run(["sudo", "bc250-apply", "--install", self.overclock_conf_path], check=True)
         except Exception as e: print(e)
 
     def load_gpu_config(self):
