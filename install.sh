@@ -16,12 +16,12 @@ get_aur_helper() {
 }
 
 # 1. 필수 시스템 패키지 설치
-echo -e "\n[1/7] 필수 시스템 패키지 및 파이썬 모듈을 설치합니다."
+echo -e "\n[1/8] 필수 시스템 패키지 및 파이썬 모듈을 설치합니다."
 sudo pacman -S --needed python python-pip python-pillow curl git python-pipx stress --noconfirm
 sudo python -m pip install customtkinter --break-system-packages
 
 # 2. CPU 가버너 설치 (bc250-collective/bc250_smu_oc)
-echo -e "\n[2/7] CPU 가버너 설치 여부를 확인합니다."
+echo -e "\n[2/8] CPU 가버너 설치 여부를 확인합니다."
 if systemctl list-unit-files | grep -q 'bc250-smu-oc.service' || command -v bc250-apply &>/dev/null || sudo pipx list 2>/dev/null | grep -q 'bc250-smu-oc'; then
     echo "  -> ✔ 이미 설치되어 있습니다 (건너뜀)."
 else
@@ -45,7 +45,7 @@ else
 fi
 
 # 3. GPU 가버너 설치 (filippor/cyan-skillfish-governor)
-echo -e "\n[3/7] GPU 가버너 설치 여부를 확인합니다."
+echo -e "\n[3/8] GPU 가버너 설치 여부를 확인합니다."
 if systemctl list-unit-files | grep -q 'cyan-skillfish-governor-smu.service' || command -v cyan-skillfish-governor-smu &>/dev/null; then
     echo "  -> ✔ 이미 설치되어 있습니다 (건너뜀)."
 else
@@ -62,21 +62,21 @@ else
     fi
 fi
 
-# 4. 프로그램 폴더 생성
-echo -e "\n[4/7] GUI 툴 프로그램 폴더를 생성합니다."
-sudo mkdir -p /opt/oci/bc250-oc-helper
+# 4. 프로그램 폴더 생성 (오타 수정: /opt/bc250-oc-helper)
+echo -e "\n[4/8] GUI 툴 프로그램 폴더를 생성합니다."
+sudo mkdir -p /opt/bc250-oc-helper
 
 # 5. 파이썬 스크립트 복사 또는 원격 다운로드
-echo -e "\n[5/7] 최신 버전의 OC Helper 툴을 다운로드합니다."
+echo -e "\n[5/8] 최신 버전의 OC Helper 툴을 다운로드합니다."
 if [ -f "./bc250-oc-helper.py" ]; then
-    sudo cp ./bc250-oc-helper.py /opt/oci/bc250-oc-helper/bc250-oc-helper.py
+    sudo cp ./bc250-oc-helper.py /opt/bc250-oc-helper/bc250-oc-helper.py
 else
-    sudo curl -sSL -o /opt/oci/bc250-oc-helper/bc250-oc-helper.py https://raw.githubusercontent.com/wnduddld0513/BC250-OC-Helper/main/bc250-oc-helper.py
+    sudo curl -sSL -o /opt/bc250-oc-helper/bc250-oc-helper.py https://raw.githubusercontent.com/wnduddld0513/BC250-OC-Helper/main/bc250-oc-helper.py
 fi
-sudo chmod +x /opt/oci/bc250-oc-helper/bc250-oc-helper.py
+sudo chmod +x /opt/bc250-oc-helper/bc250-oc-helper.py
 
 # 6. G-Helper 스타일 전용 고해상도 아이콘 생성
-echo -e "\n[6/7] 전용 바로가기 아이콘을 생성합니다."
+echo -e "\n[6/8] 전용 바로가기 아이콘을 생성합니다."
 sudo python -c "
 from PIL import Image, ImageDraw
 img = Image.new('RGBA', (512, 512), (0,0,0,0))
@@ -86,23 +86,38 @@ try:
     draw.text((256, 240), 'B', fill='#ffffff', font_size=280, anchor='mm')
 except Exception:
     pass
-img.save('/opt/oci/bc250-oc-helper/icon.png')
+img.save('/opt/bc250-oc-helper/icon.png')
 "
 
-# 7. 시스템 유틸리티 메뉴 등록 (권한 오류 해결 부분)
-echo -e "\n[7/7] 시스템 메뉴에 앱을 등록합니다."
+# 7. 시스템 유틸리티 메뉴 등록
+echo -e "\n[7/8] 시스템 메뉴에 앱을 등록합니다."
 sudo tee /usr/share/applications/bc250-oc-helper.desktop > /dev/null <<EOF
 [Desktop Entry]
 Type=Application
 Name=BC-250 OC Helper
 Comment=simple gui bc-250 overclock tool
-Exec=sudo python /opt/oci/bc250-oc-helper/bc250-oc-helper.py
-Icon=/opt/oci/bc250-oc-helper/icon.png
+Exec=sudo python /opt/bc250-oc-helper/bc250-oc-helper.py
+Icon=/opt/bc250-oc-helper/icon.png
 Terminal=true
 Categories=Utility;System;
 EOF
 
+# 8. 바탕화면(Desktop) 바로가기 추가
+echo -e "\n[8/8] 바탕화면에 바로가기를 생성합니다."
+USER_HOME=$(eval echo ~$REAL_USER)
+DESKTOP_DIR="$USER_HOME/Desktop"
+[ -d "$USER_HOME/바탕화면" ] && DESKTOP_DIR="$USER_HOME/바탕화면"
+
+if [ -d "$DESKTOP_DIR" ]; then
+    sudo cp /usr/share/applications/bc250-oc-helper.desktop "$DESKTOP_DIR/"
+    sudo chown $REAL_USER:$REAL_USER "$DESKTOP_DIR/bc250-oc-helper.desktop"
+    sudo chmod +x "$DESKTOP_DIR/bc250-oc-helper.desktop"
+    echo "  -> ✔ 바탕화면 바로가기 생성 완료."
+else
+    echo "  -> ⚠ 바탕화면 폴더를 찾을 수 없어 바로가기 생성은 건너뜁니다."
+fi
+
 echo "========================================================="
 echo " 설치가 모두 완료되었습니다!"
-echo " 작업 표시줄의 시스템 유틸리티 메뉴에서 'BC-250 OC Helper'를 실행하세요."
+echo " 바탕화면이나 시스템 유틸리티 메뉴에서 'BC-250 OC Helper'를 실행하세요."
 echo "========================================================="
