@@ -3,14 +3,15 @@ import os
 import re
 import sys
 import shutil
+import tempfile
 import subprocess
 import tkinter as tk
 import customtkinter as ctk
 
 CONFIG_FILE = "/opt/bc250-oc-helper/config.txt"
 ICON_FILE = "/opt/bc250-oc-helper/icon.png"
-OVERCLOCK_CONF_FALLBACK = "/opt/bc250-oc-helper/overclock.conf"
 GPU_CONFIG_PATH = "/etc/cyan-skillfish-governor-smu/config.toml"
+OVERCLOCK_CONF_FALLBACK = "/opt/bc250-oc-helper/overclock.conf"
 
 GEMINI_FONT_FAMILY = "sans-serif"
 
@@ -29,7 +30,7 @@ LANG = {
         "clk_mhz": "Clock (MHz)",
         "vol_mv": "Volt (mV)",
         "reboot": "Reboot",
-        "update": "Update",
+        "update": "Update"
     },
     "Korean": {
         "cpu_control": "CPU 제어",
@@ -45,8 +46,8 @@ LANG = {
         "clk_mhz": "클럭 (MHz)",
         "vol_mv": "전압 (mV)",
         "reboot": "재부팅",
-        "update": "업데이트",
-    },
+        "update": "업데이트"
+    }
 }
 
 BG_COLOR = ("#f0f4f9", "#131314")
@@ -69,6 +70,8 @@ def find_cmd(name: str):
 
 def parse_volt_to_mv(txt: str) -> int:
     s = txt.strip().replace(",", ".").replace(" ", "")
+    if not s:
+        raise ValueError("Voltage is empty")
     v = float(s)
     if v >= 100:
         return int(round(v))
@@ -94,7 +97,7 @@ class OCApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("BC-250 OC Helper")
-        self.geometry("1080x720")
+        self.geometry("1120x730")
         self.minsize(980, 620)
 
         try:
@@ -130,22 +133,54 @@ class OCApp(ctk.CTk):
         self.change_lang(self.settings["lang"])
 
         self.log(f"Python: {sys.version.split()[0]}")
-        self.log(f"Detect cmd: {self.bc250_detect or 'NOT FOUND'}")
-        self.log(f"Apply cmd: {self.bc250_apply or 'NOT FOUND'}")
-        self.log(f"CPU config: {self.overclock_conf_path}")
-        self.log(f"GPU config: {self.config_toml_path}")
+        self.log(f"bc250-detect: {self.bc250_detect or 'NOT FOUND'}")
+        self.log(f"bc250-apply: {self.bc250_apply or 'NOT FOUND'}")
+        self.log(f"CPU conf: {self.overclock_conf_path}")
+        self.log(f"GPU conf: {self.config_toml_path}")
 
         self.load_cpu_config()
         self.load_gpu_config()
 
     def resolve_overclock_conf_path(self):
-        sudo_user = os.environ.get("SUDO_USER")
-        user = sudo_user or os.environ.get("USER")
+        user = os.environ.get("SUDO_USER") or os.environ.get("USER")
         if user:
             p = os.path.join("/home", user, "bc250_smu_oc", "overclock.conf")
             if os.path.exists(os.path.dirname(p)):
                 return p
         return OVERCLOCK_CONF_FALLBACK
+
+    def log(self, msg: str):
+        self.term_box.configure(state="normal")
+        self.term_box.insert("end", msg.rstrip() + "\n")
+        self.term_box.see("end")
+        self.term_box.configure(state="disabled")
+        self.update_idletasks()
+
+    def run_cmd_live(self, cmd, need_sudo=False):
+        final_cmd = cmd[:]
+        if need_sudo and os.geteuid() != 0:
+            final_cmd = ["sudo", "-n"] + final_cmd
+
+        self.log("$ " + " ".join(final_cmd))
+
+        p = subprocess.Popen(
+            final_cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1
+        )
+
+        if p.stdout:
+            for line in p.stdout:
+                self.log(line.rstrip())
+
+        rc = p.wait()
+        if rc != 0:
+            if need_sudo and os.geteuid() != 0:
+                self.log("[HINT] sudoers NOPASSWD 설정이 필요할 수 있습니다.")
+            raise RuntimeError(f"Command failed (exit={rc})")
+        return rc
 
     def load_settings(self):
         try:
@@ -166,7 +201,7 @@ class OCApp(ctk.CTk):
                 f.write(f"Language={self.settings['lang']}\n")
                 f.write(f"Theme={self.settings['theme']}\n")
         except Exception as e:
-            self.log(f"[WARN] save_settings failed: {e}")
+            self.log(f"[WARN] save_settings: {e}")
 
     def create_menu(self):
         self.menu_frame = ctk.CTkFrame(self, height=50, corner_radius=25, fg_color=CARD_BG)
@@ -214,6 +249,7 @@ class OCApp(ctk.CTk):
         main.grid_rowconfigure(0, weight=6)
         main.grid_rowconfigure(1, weight=4)
 
+        # LEFT TOP: CPU
         cpu_card = ctk.CTkFrame(main, corner_radius=20, fg_color=CARD_BG)
         cpu_card.grid(row=0, column=0, sticky="nsew", padx=(0, 8), pady=(0, 8))
 
@@ -258,6 +294,7 @@ class OCApp(ctk.CTk):
         self.btn_find_vol = ctk.CTkButton(cpu_btn, width=120, corner_radius=25, fg_color=SEC_BTN_BG, hover_color=SEC_BTN_HOVER, text_color=TEXT_COLOR, command=self.run_cpu_detect)
         self.btn_find_vol.pack(side="right")
 
+        # LEFT BOTTOM: INTERNAL TERMINAL
         term_card = ctk.CTkFrame(main, corner_radius=20, fg_color=CARD_BG)
         term_card.grid(row=1, column=0, sticky="nsew", padx=(0, 8), pady=(8, 0))
 
@@ -268,91 +305,96 @@ class OCApp(ctk.CTk):
         self.term_box.pack(fill="both", expand=True, padx=12, pady=(0, 12))
         self.term_box.configure(state="disabled")
 
+        # RIGHT: GPU FULL HEIGHT
         self.gpu_card = ctk.CTkFrame(main, corner_radius=20, fg_color=CARD_BG)
         self.gpu_card.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=(8, 0), pady=0)
 
         self.gpu_label = ctk.CTkLabel(self.gpu_card, text="", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=14, weight="bold"))
         self.gpu_label.pack(anchor="w", padx=20, pady=(14, 6))
 
-        temp_frame = ctk.CTkFrame(self.gpu_card, fg_color="transparent")
-        temp_frame.pack(side="top", fill="x", padx=20, pady=4)
+        # GPU top split: left temperature, right safe-points table
+        gpu_top = ctk.CTkFrame(self.gpu_card, fg_color="transparent")
+        gpu_top.pack(side="top", fill="both", expand=True, padx=15, pady=6)
+        gpu_top.grid_columnconfigure(0, weight=4)
+        gpu_top.grid_columnconfigure(1, weight=6)
+        gpu_top.grid_rowconfigure(0, weight=1)
+
+        temp_frame = ctk.CTkFrame(gpu_top, fg_color="transparent")
+        temp_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 8), pady=0)
 
         self.lbl_throttling = ctk.CTkLabel(temp_frame, text="")
-        self.lbl_throttling.grid(row=0, column=0, sticky="w", pady=5)
+        self.lbl_throttling.grid(row=0, column=0, sticky="w", pady=6)
         self.gpu_throt_var = ctk.StringVar(value="90")
-        ctk.CTkEntry(temp_frame, textvariable=self.gpu_throt_var, width=65, corner_radius=10, border_width=0, fg_color=ENTRY_BG, justify="center").grid(row=0, column=1, padx=10, pady=5)
-        ctk.CTkLabel(temp_frame, text="°C").grid(row=0, column=2, sticky="w", pady=5)
+        ctk.CTkEntry(temp_frame, textvariable=self.gpu_throt_var, width=72, corner_radius=10, border_width=0, fg_color=ENTRY_BG, justify="center").grid(row=0, column=1, padx=10, pady=6)
+        ctk.CTkLabel(temp_frame, text="°C").grid(row=0, column=2, sticky="w", pady=6)
 
         self.lbl_recovery = ctk.CTkLabel(temp_frame, text="")
-        self.lbl_recovery.grid(row=1, column=0, sticky="w", pady=5)
+        self.lbl_recovery.grid(row=1, column=0, sticky="w", pady=6)
         self.gpu_recov_var = ctk.StringVar(value="85")
-        ctk.CTkEntry(temp_frame, textvariable=self.gpu_recov_var, width=65, corner_radius=10, border_width=0, fg_color=ENTRY_BG, justify="center").grid(row=1, column=1, padx=10, pady=5)
-        ctk.CTkLabel(temp_frame, text="°C").grid(row=1, column=2, sticky="w", pady=5)
+        ctk.CTkEntry(temp_frame, textvariable=self.gpu_recov_var, width=72, corner_radius=10, border_width=0, fg_color=ENTRY_BG, justify="center").grid(row=1, column=1, padx=10, pady=6)
+        ctk.CTkLabel(temp_frame, text="°C").grid(row=1, column=2, sticky="w", pady=6)
 
-        list_label = ctk.CTkFrame(self.gpu_card, fg_color="transparent")
-        list_label.pack(side="top", fill="x", padx=20, pady=(10, 0))
-        list_label.grid_columnconfigure(0, minsize=115)
-        list_label.grid_columnconfigure(1, minsize=115)
+        table_wrap = ctk.CTkFrame(gpu_top, fg_color="transparent")
+        table_wrap.grid(row=0, column=1, sticky="nsew", padx=(8, 0), pady=0)
+        table_wrap.grid_columnconfigure(0, weight=1)
+        table_wrap.grid_rowconfigure(1, weight=1)
+
+        list_label = ctk.CTkFrame(table_wrap, fg_color="transparent")
+        list_label.grid(row=0, column=0, sticky="ew", pady=(0, 4))
+        list_label.grid_columnconfigure(0, weight=1)
+        list_label.grid_columnconfigure(1, weight=1)
 
         self.lbl_clk_head = ctk.CTkLabel(list_label, text="")
         self.lbl_clk_head.grid(row=0, column=0, sticky="w", padx=5)
         self.lbl_vol_head = ctk.CTkLabel(list_label, text="")
         self.lbl_vol_head.grid(row=0, column=1, sticky="w", padx=5)
 
-        self.points_container = ctk.CTkScrollableFrame(self.gpu_card, fg_color="transparent", corner_radius=15)
-        self.points_container.pack(side="top", fill="both", expand=True, padx=15, pady=6)
+        self.points_container = ctk.CTkScrollableFrame(table_wrap, fg_color="transparent", corner_radius=12)
+        self.points_container.grid(row=1, column=0, sticky="nsew")
 
         gpu_btn = ctk.CTkFrame(self.gpu_card, fg_color="transparent")
         gpu_btn.pack(side="bottom", fill="x", padx=20, pady=(6, 14))
         self.btn_apply_gpu = ctk.CTkButton(gpu_btn, width=100, corner_radius=25, command=self.apply_gpu_config)
         self.btn_apply_gpu.pack(side="right", padx=(10, 0))
         self.btn_reboot = ctk.CTkButton(gpu_btn, width=100, corner_radius=25, fg_color=("#d9534f", "#c9302c"), hover_color=("#c9302c", "#a01e1e"), command=self.reboot_system)
-        self.btn_reboot.pack(side="right", padx=(0, 0))
-
-    def log(self, msg: str):
-        self.term_box.configure(state="normal")
-        self.term_box.insert("end", msg.rstrip() + "\n")
-        self.term_box.see("end")
-        self.term_box.configure(state="disabled")
-        self.update_idletasks()
-
-    def run_cmd(self, cmd, need_sudo=False):
-        if need_sudo and os.geteuid() != 0:
-            cmd = ["sudo", "-n"] + cmd
-        self.log("$ " + " ".join(cmd))
-        p = subprocess.run(cmd, text=True, capture_output=True)
-        if p.stdout:
-            self.log(p.stdout)
-        if p.stderr:
-            self.log(p.stderr)
-        if p.returncode != 0:
-            if need_sudo and os.geteuid() != 0:
-                self.log("[HINT] sudo passwordless 권한(NOPASSWD) 설정 필요할 수 있습니다.")
-            raise RuntimeError(f"Command failed: exit={p.returncode}")
-        return p
+        self.btn_reboot.pack(side="right")
 
     def change_theme(self, new_theme):
         self.settings["theme"] = new_theme
         self.save_settings()
         ctk.set_appearance_mode(new_theme)
-        self.lang_menu.configure(fg_color=SEC_BTN_BG, button_color=SEC_BTN_BG, button_hover_color=SEC_BTN_HOVER, text_color=TEXT_COLOR, border_width=0, dropdown_fg_color=CARD_BG)
-        self.theme_menu.configure(fg_color=SEC_BTN_BG, button_color=SEC_BTN_BG, button_hover_color=SEC_BTN_HOVER, text_color=TEXT_COLOR, border_width=0, dropdown_fg_color=CARD_BG)
+        self.lang_menu.configure(
+            fg_color=SEC_BTN_BG,
+            button_color=SEC_BTN_BG,
+            button_hover_color=SEC_BTN_HOVER,
+            text_color=TEXT_COLOR,
+            border_width=0,
+            dropdown_fg_color=CARD_BG
+        )
+        self.theme_menu.configure(
+            fg_color=SEC_BTN_BG,
+            button_color=SEC_BTN_BG,
+            button_hover_color=SEC_BTN_HOVER,
+            text_color=TEXT_COLOR,
+            border_width=0,
+            dropdown_fg_color=CARD_BG
+        )
         self.btn_update.configure(fg_color=SEC_BTN_BG, hover_color=SEC_BTN_HOVER, text_color=TEXT_COLOR)
 
     def change_lang(self, lang_name):
         self.settings["lang"] = lang_name
         self.save_settings()
         t = LANG[lang_name]
-        self.cpu_label.configure(text=t["cpu_control"])
-        self.gpu_label.configure(text=t["gpu_control"])
-        self.term_label.configure(text=t["terminal"])
+        self.cpu_label.configure(text=t["cpu_control"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=14, weight="bold"))
+        self.gpu_label.configure(text=t["gpu_control"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=14, weight="bold"))
+        self.term_label.configure(text=t["terminal"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=14, weight="bold"))
         self.lbl_max_temp.configure(text=t["max_temp"])
         self.lbl_target_clk.configure(text=t["target_clk"])
         self.lbl_target_vol.configure(text=t["target_vol"])
-        self.btn_find_vol.configure(text=t["find_vol"])
-        self.btn_apply_cpu.configure(text=t["apply"])
-        self.btn_apply_gpu.configure(text=t["apply"])
-        self.btn_reboot.configure(text=t["reboot"])
+        self.btn_find_vol.configure(text=t["find_vol"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13, weight="bold"))
+        self.btn_apply_cpu.configure(text=t["apply"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13, weight="bold"))
+        self.btn_apply_gpu.configure(text=t["apply"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13, weight="bold"))
+        self.btn_reboot.configure(text=t["reboot"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13, weight="bold"))
         self.btn_update.configure(text=t["update"])
         self.lbl_throttling.configure(text=t["throttling"])
         self.lbl_recovery.configure(text=t["recovery"])
@@ -364,10 +406,10 @@ class OCApp(ctk.CTk):
             url = "https://raw.githubusercontent.com/wnduddld0513/BC250-OC-Helper/main/bc250-oc-helper.py"
             target = "/opt/bc250-oc-helper/bc250-oc-helper.py"
             temp = "/tmp/bc250-oc-helper-update.py"
-            self.run_cmd(["curl", "-sSL", "-o", temp, url], need_sudo=False)
-            self.run_cmd(["mv", temp, target], need_sudo=True)
-            self.run_cmd(["chmod", "+x", target], need_sudo=True)
-            self.log("Update done. Restarting app...")
+            self.run_cmd_live(["curl", "-sSL", "-o", temp, url], need_sudo=False)
+            self.run_cmd_live(["mv", temp, target], need_sudo=True)
+            self.run_cmd_live(["chmod", "+x", target], need_sudo=True)
+            self.log("[OK] Updated. Restarting...")
             os.execv(sys.executable, [sys.executable, target])
         except Exception as e:
             self.log(f"[ERROR] Update failed: {e}")
@@ -385,32 +427,39 @@ class OCApp(ctk.CTk):
         try:
             with open(self.overclock_conf_path, "r", encoding="utf-8") as f:
                 content = f.read()
+
             f_match = re.search(r"frequency\s*=\s*(\d+)", content)
             s_match = re.search(r"scale\s*=\s*(-?\d+)", content)
             t_match = re.search(r"max_temperature\s*=\s*(\d+)", content)
+
             if f_match:
                 mhz = int(f_match.group(1))
                 self.cpu_clk_var.set(str(mhz))
                 self.cpu_clk_slider.set(mhz)
+
             if s_match:
                 self.current_scale = int(s_match.group(1))
                 pred_mv = vid_predict(int(self.cpu_clk_var.get()), self.current_scale)
                 v = max(0.800, min(1.325, pred_mv / 1000.0))
                 self.cpu_vol_var.set(f"{v:.3f}")
                 self.cpu_vol_slider.set(v)
+
             if t_match:
                 self.cpu_temp_var.set(t_match.group(1))
         except Exception as e:
-            self.log(f"[WARN] load_cpu_config failed: {e}")
+            self.log(f"[WARN] load_cpu_config: {e}")
 
     def run_cpu_detect(self):
         try:
             if not self.bc250_detect:
-                raise RuntimeError("bc250-detect not found in PATH")
+                raise RuntimeError("bc250-detect not found")
+
             mhz = int(self.cpu_clk_var.get())
             mv = parse_volt_to_mv(self.cpu_vol_var.get())
             temp = int(self.cpu_temp_var.get())
+
             os.makedirs(os.path.dirname(self.overclock_conf_path), exist_ok=True)
+
             cmd = [
                 self.bc250_detect,
                 "--frequency", str(mhz),
@@ -419,20 +468,31 @@ class OCApp(ctk.CTk):
                 "--keep",
                 "-c", self.overclock_conf_path
             ]
-            self.run_cmd(cmd, need_sudo=True)
+            self.run_cmd_live(cmd, need_sudo=True)
             self.load_cpu_config()
+            self.log("[OK] Detect done")
         except Exception as e:
             self.log(f"[ERROR] Detect failed: {e}")
 
     def apply_cpu_oc(self):
         try:
             if not self.bc250_apply:
-                raise RuntimeError("bc250-apply not found in PATH")
+                raise RuntimeError("bc250-apply not found")
+
             mhz = int(self.cpu_clk_var.get())
             temp = int(self.cpu_temp_var.get())
             target_mv = parse_volt_to_mv(self.cpu_vol_var.get())
-            scale = nearest_scale_for_vid(mhz, target_mv, self.scale_min, self.scale_max, self.current_scale)
+
+            scale = nearest_scale_for_vid(
+                clock=mhz,
+                target_mv=target_mv,
+                scale_min=self.scale_min,
+                scale_max=self.scale_max,
+                current_scale=self.current_scale
+            )
+
             pred_mv = vid_predict(mhz, scale)
+
             os.makedirs(os.path.dirname(self.overclock_conf_path), exist_ok=True)
             with open(self.overclock_conf_path, "w", encoding="utf-8") as f:
                 f.write(
@@ -441,12 +501,15 @@ class OCApp(ctk.CTk):
                     f"scale = {scale}\n"
                     f"max_temperature = {temp}\n"
                 )
-            self.run_cmd([self.bc250_apply, "--install", self.overclock_conf_path], need_sudo=True)
-            self.run_cmd([self.systemctl, "restart", "bc250-smu-oc"], need_sudo=True)
+
+            self.run_cmd_live([self.bc250_apply, "--install", self.overclock_conf_path], need_sudo=True)
+            self.run_cmd_live([self.systemctl, "restart", "bc250-smu-oc"], need_sudo=True)
+
             self.current_scale = scale
             v = max(0.800, min(1.325, pred_mv / 1000.0))
             self.cpu_vol_var.set(f"{v:.3f}")
             self.cpu_vol_slider.set(v)
+
             self.log(f"[OK] Applied CPU: {mhz} MHz, target={target_mv} mV, scale={scale}, predicted={pred_mv:.1f} mV")
         except Exception as e:
             self.log(f"[ERROR] Apply CPU failed: {e}")
@@ -459,50 +522,71 @@ class OCApp(ctk.CTk):
         try:
             with open(self.config_toml_path, "r", encoding="utf-8") as f:
                 content = f.read()
+
             self.gpu_safe_points = []
+
             throt = re.search(r"throttling\s*=\s*(\d+)", content)
             recov = re.search(r"throttling_recovery\s*=\s*(\d+)", content)
             if throt:
                 self.gpu_throt_var.set(throt.group(1))
             if recov:
                 self.gpu_recov_var.set(recov.group(1))
+
             matches = re.findall(r"\[\[safe-points\]\]\s*frequency\s*=\s*(\d+)\s*voltage\s*=\s*(\d+)", content)
             for clk, vol in matches:
                 self.gpu_safe_points.append({"frequency": clk, "voltage": vol})
+
             if not self.gpu_safe_points:
                 self.gpu_safe_points = [{"frequency": "500", "voltage": "700"}]
+
             self.render_gpu_rows()
         except Exception as e:
-            self.log(f"[WARN] load_gpu_config failed: {e}")
+            self.log(f"[WARN] load_gpu_config: {e}")
 
     def render_gpu_rows(self):
-        for w in self.points_container.winfo_children():
-            w.destroy()
+        for widget in self.points_container.winfo_children():
+            widget.destroy()
+
         for i, pt in enumerate(self.gpu_safe_points):
-            f_entry = ctk.CTkEntry(self.points_container, width=88, corner_radius=10, border_width=0, fg_color=ENTRY_BG, justify="center")
+            f_entry = ctk.CTkEntry(
+                self.points_container, width=88, corner_radius=10, border_width=0,
+                fg_color=ENTRY_BG, justify="center"
+            )
             f_entry.insert(0, pt["frequency"])
             f_entry.grid(row=i, column=0, padx=5, pady=3, sticky="w")
             f_entry.bind("<FocusOut>", lambda e, idx=i, ent=f_entry: self.update_gpu_val(idx, "frequency", ent.get()))
 
-            v_entry = ctk.CTkEntry(self.points_container, width=88, corner_radius=10, border_width=0, fg_color=ENTRY_BG, justify="center")
+            v_entry = ctk.CTkEntry(
+                self.points_container, width=88, corner_radius=10, border_width=0,
+                fg_color=ENTRY_BG, justify="center"
+            )
             v_entry.insert(0, pt["voltage"])
             v_entry.grid(row=i, column=1, padx=5, pady=3, sticky="w")
             v_entry.bind("<FocusOut>", lambda e, idx=i, ent=v_entry: self.update_gpu_val(idx, "voltage", ent.get()))
 
-            btn = ctk.CTkFrame(self.points_container, fg_color="transparent")
-            btn.grid(row=i, column=2, padx=2, pady=3, sticky="w")
+            btn_frame = ctk.CTkFrame(self.points_container, fg_color="transparent")
+            btn_frame.grid(row=i, column=2, padx=2, pady=3, sticky="w")
 
-            ctk.CTkButton(btn, text="+", width=34, height=34, corner_radius=17, fg_color=SEC_BTN_BG, hover_color=SEC_BTN_HOVER, text_color=TEXT_COLOR, command=lambda idx=i: self.add_gpu_row(idx)).pack(side="left", padx=3)
-            ctk.CTkButton(btn, text="−", width=34, height=34, corner_radius=17, fg_color=SEC_BTN_BG, hover_color=SEC_BTN_HOVER, text_color=TEXT_COLOR, command=lambda idx=i: self.remove_gpu_row(idx)).pack(side="left", padx=3)
+            ctk.CTkButton(
+                btn_frame, text="+", width=34, height=34, corner_radius=17,
+                fg_color=SEC_BTN_BG, hover_color=SEC_BTN_HOVER, text_color=TEXT_COLOR,
+                command=lambda idx=i: self.add_gpu_row(idx)
+            ).pack(side="left", padx=3)
+
+            ctk.CTkButton(
+                btn_frame, text="−", width=34, height=34, corner_radius=17,
+                fg_color=SEC_BTN_BG, hover_color=SEC_BTN_HOVER, text_color=TEXT_COLOR,
+                command=lambda idx=i: self.remove_gpu_row(idx)
+            ).pack(side="left", padx=3)
 
     def update_gpu_val(self, idx, key, val):
         self.gpu_safe_points[idx][key] = val.strip()
 
     def add_gpu_row(self, idx):
-        b = self.gpu_safe_points[idx]
+        base = self.gpu_safe_points[idx]
         try:
-            nf = str(int(b["frequency"]) + 100)
-            nv = str(int(b["voltage"]) + 25)
+            nf = str(int(base["frequency"]) + 100)
+            nv = str(int(base["voltage"]) + 25)
         except Exception:
             nf, nv = "1000", "800"
         self.gpu_safe_points.insert(idx + 1, {"frequency": nf, "voltage": nv})
@@ -516,10 +600,11 @@ class OCApp(ctk.CTk):
 
     def apply_gpu_config(self):
         try:
-            freqs = [int(p["frequency"]) for p in self.gpu_safe_points if p["frequency"].isdigit()]
+            freqs = [int(pt["frequency"]) for pt in self.gpu_safe_points if pt["frequency"].isdigit()]
             if not freqs:
                 raise RuntimeError("No valid GPU frequencies")
-            toml = [
+
+            toml_lines = [
                 "[gpu]",
                 'set-method = "smu"',
                 "[frequency-range]",
@@ -541,17 +626,29 @@ class OCApp(ctk.CTk):
                 f"throttling_recovery = {self.gpu_recov_var.get()}",
             ]
             for pt in self.gpu_safe_points:
-                toml += ["[[safe-points]]", f"frequency = {pt['frequency']}", f"voltage = {pt['voltage']}"]
+                toml_lines.append("[[safe-points]]")
+                toml_lines.append(f"frequency = {pt['frequency']}")
+                toml_lines.append(f"voltage = {pt['voltage']}")
 
-            self.run_cmd(["bash", "-lc", f"cat > '{self.config_toml_path}' << 'EOF'\n" + "\n".join(toml) + "\nEOF"], need_sudo=True)
-            self.run_cmd([self.systemctl, "restart", "cyan-skillfish-governor-smu"], need_sudo=True)
-            self.log("[OK] GPU config applied")
+            tmp = tempfile.NamedTemporaryFile("w", delete=False, encoding="utf-8")
+            try:
+                tmp.write("\n".join(toml_lines) + "\n")
+                tmp.close()
+                self.run_cmd_live(["cp", tmp.name, self.config_toml_path], need_sudo=True)
+            finally:
+                try:
+                    os.unlink(tmp.name)
+                except Exception:
+                    pass
+
+            self.run_cmd_live([self.systemctl, "restart", "cyan-skillfish-governor-smu"], need_sudo=True)
+            self.log("[OK] Applied GPU config")
         except Exception as e:
             self.log(f"[ERROR] Apply GPU failed: {e}")
 
     def reboot_system(self):
         try:
-            self.run_cmd(["reboot"], need_sudo=True)
+            self.run_cmd_live(["reboot"], need_sudo=True)
         except Exception as e:
             self.log(f"[ERROR] Reboot failed: {e}")
 
