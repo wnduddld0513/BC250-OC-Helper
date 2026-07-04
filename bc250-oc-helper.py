@@ -2,7 +2,6 @@ import sys
 import os
 import subprocess
 import re
-import json
 import tkinter as tk
 import customtkinter as ctk
 
@@ -10,7 +9,8 @@ if os.geteuid() != 0:
     print("This program requires sudo privileges.")
     sys.exit(1)
 
-SETTINGS_FILE = "/etc/cyan-skillfish-governor-smu/gui_settings.json"
+# 설정 파일 경로 및 포맷 변경
+CONFIG_FILE = "/opt/bc250-oc-helper/config.txt"
 
 LANG = {
     "English": {
@@ -25,13 +25,7 @@ LANG = {
         "recovery": "Recovery",
         "clk_mhz": "Clock (MHz)",
         "vol_mv": "Volt (mV)",
-        "reboot": "Reboot",
-        "menu_lang": "Language",
-        "menu_theme": "Theme",
-        "msg_reboot_title": "Reboot Confirm",
-        "msg_reboot_body": "Do you want to reboot the system?",
-        "msg_warn_safept": "You must leave at least one safe-point.",
-        "msg_warn_minpt": "Must have at least one valid safe-point."
+        "reboot": "Reboot"
     },
     "Korean": {
         "cpu_control": "CPU 제어",
@@ -45,13 +39,7 @@ LANG = {
         "recovery": "Recovery",
         "clk_mhz": "클럭 (MHz)",
         "vol_mv": "전압 (mV)",
-        "reboot": "재부팅",
-        "menu_lang": "언어",
-        "menu_theme": "테마",
-        "msg_reboot_title": "재부팅 확인",
-        "msg_reboot_body": "시스템을 재부팅하시겠습니까?",
-        "msg_warn_safept": "최소 1개의 안전 포인트 설정은 남겨두어야 합니다.",
-        "msg_warn_minpt": "최소 하나 이상의 유효한 safe-point가 있어야 합니다."
+        "reboot": "재부팅"
     }
 }
 
@@ -64,7 +52,6 @@ class OCApp(ctk.CTk):
         
         self.gpu_safe_points = []
         self.config_toml_path = "/etc/cyan-skillfish-governor-smu/config.toml"
-        # 오버클럭 설정 파일이 프로그램 폴더 안에 깔끔하게 저장되도록 절대 경로 지정
         self.overclock_conf_path = "/opt/bc250-oc-helper/overclock.conf"
         
         self.settings = {"lang": "English", "theme": "Dark"}
@@ -82,36 +69,41 @@ class OCApp(ctk.CTk):
 
     def load_settings(self):
         try:
-            if os.path.exists(SETTINGS_FILE):
-                with open(SETTINGS_FILE, "r") as f:
-                    self.settings.update(json.load(f))
+            if os.path.exists(CONFIG_FILE):
+                with open(CONFIG_FILE, "r") as f:
+                    for line in f:
+                        if line.startswith("Language="):
+                            self.settings["lang"] = line.strip().split("=")[1]
+                        elif line.startswith("Theme="):
+                            self.settings["theme"] = line.strip().split("=")[1]
         except Exception:
             pass
 
     def save_settings(self):
         try:
-            os.makedirs(os.path.dirname(SETTINGS_FILE), exist_ok=True)
-            with open(SETTINGS_FILE, "w") as f:
-                json.dump(self.settings, f)
+            os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
+            with open(CONFIG_FILE, "w") as f:
+                f.write(f"Language={self.settings['lang']}\n")
+                f.write(f"Theme={self.settings['theme']}\n")
         except Exception:
             pass
 
     def create_menu(self):
-        menu_frame = ctk.CTkFrame(self, height=35, corner_radius=0)
+        # 상단 메뉴 바 레이아웃
+        menu_frame = ctk.CTkFrame(self, height=40, corner_radius=0)
         menu_frame.pack(side="top", fill="x")
         
-        self.lang_btn = ctk.CTkButton(menu_frame, text="Language", width=80, height=25, fg_color="transparent", text_color=("black", "white"), command=self.toggle_lang)
-        self.lang_btn.pack(side="left", padx=5, pady=5)
+        # 언어 드롭다운 메뉴
+        self.lang_menu = ctk.CTkOptionMenu(menu_frame, values=["English", "Korean"], width=110, command=self.change_lang)
+        self.lang_menu.set(self.settings["lang"])
+        self.lang_menu.pack(side="left", padx=10, pady=8)
         
-        self.theme_btn = ctk.CTkButton(menu_frame, text="Theme", width=80, height=25, fg_color="transparent", text_color=("black", "white"), command=self.toggle_theme)
-        self.theme_btn.pack(side="left", padx=5, pady=5)
+        # 테마 드롭다운 메뉴
+        self.theme_menu = ctk.CTkOptionMenu(menu_frame, values=["Dark", "Light"], width=110, command=self.change_theme)
+        self.theme_menu.set(self.settings["theme"])
+        self.theme_menu.pack(side="left", padx=5, pady=8)
 
-    def toggle_lang(self):
-        new_lang = "Korean" if self.settings["lang"] == "English" else "English"
-        self.change_lang(new_lang)
-
-    def toggle_theme(self):
-        new_theme = "Light" if self.settings["theme"] == "Dark" else "Dark"
+    def change_theme(self, new_theme):
         self.settings["theme"] = new_theme
         self.save_settings()
         ctk.set_appearance_mode(new_theme)
@@ -136,11 +128,9 @@ class OCApp(ctk.CTk):
         self.lbl_recovery.configure(text=t["recovery"])
         self.lbl_clk_head.configure(text=t["clk_mhz"])
         self.lbl_vol_head.configure(text=t["vol_mv"])
-        
-        self.lang_btn.configure(text="언어" if lang_name == "Korean" else "Language")
-        self.theme_btn.configure(text="테마" if lang_name == "Korean" else "Theme")
 
     def create_widgets(self):
+        # --- CPU ---
         cpu_card = ctk.CTkFrame(self)
         cpu_card.pack(side="top", fill="x", padx=15, pady=10)
         
@@ -185,6 +175,7 @@ class OCApp(ctk.CTk):
         self.btn_find_vol = ctk.CTkButton(cpu_btn_frame, width=90, fg_color="#444444", hover_color="#555555", command=self.run_cpu_detect)
         self.btn_find_vol.pack(side="right", padx=(0, 5))
 
+        # --- GPU ---
         self.gpu_card = ctk.CTkFrame(self)
         self.gpu_card.pack(side="top", fill="both", expand=True, padx=15, pady=(0, 15))
         
@@ -232,16 +223,8 @@ class OCApp(ctk.CTk):
     def on_cpu_clk_slider_move(self, val):
         self.cpu_clk_var.set(str(int(val)))
 
-    def on_cpu_clk_entry_change(self):
-        try: self.cpu_clk_slider.set(int(self.cpu_clk_var.get()))
-        except: pass
-
     def on_cpu_slider_move(self, val):
         self.cpu_vol_var.set(f"{val:.3f}")
-
-    def on_cpu_vol_entry_change(self):
-        try: self.cpu_vol_slider.set(float(self.cpu_vol_var.get()))
-        except: pass
 
     def load_cpu_config(self):
         if os.path.exists(self.overclock_conf_path):
@@ -264,7 +247,8 @@ class OCApp(ctk.CTk):
         try:
             mhz = int(self.cpu_clk_var.get())
             mv = int(float(self.cpu_vol_var.get()) * 1000)
-            subprocess.run(["sudo", "bc250-detect", "--frequency", str(mhz), "--vid", str(mv), "--keep"], check=True)
+            # sudo 환경에서 안전하게 작동하도록 다시 절대 경로로 원복
+            subprocess.run(["sudo", "/root/.local/bin/bc250-detect", "--frequency", str(mhz), "--vid", str(mv), "--keep"], check=True)
             self.load_cpu_config()
         except Exception as e: print(e)
 
@@ -275,7 +259,8 @@ class OCApp(ctk.CTk):
             temp = int(self.cpu_temp_var.get())
             with open(self.overclock_conf_path, "w") as f:
                 f.write(f"[overclock]\nfrequency={mhz}\nvid={mv}\nmax_temperature={temp}\nkeep=true\n")
-            subprocess.run(["sudo", "bc250-apply", "--install", self.overclock_conf_path], check=True)
+            # sudo 환경에서 안전하게 작동하도록 다시 절대 경로로 원복
+            subprocess.run(["sudo", "/root/.local/bin/bc250-apply", "--install", self.overclock_conf_path], check=True)
         except Exception as e: print(e)
 
     def load_gpu_config(self):
