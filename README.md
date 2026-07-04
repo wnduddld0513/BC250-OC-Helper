@@ -1,4 +1,4 @@
-# BC-250 OC Helper
+# BC250 OC Helper
 
 A simple GUI overclock tool to modify BC-250's CPU and GPU.
 
