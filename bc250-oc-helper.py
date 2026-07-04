@@ -3,6 +3,7 @@ import os
 import subprocess
 import re
 import json
+import tkinter as tk
 import customtkinter as ctk
 
 if os.geteuid() != 0:
@@ -155,7 +156,7 @@ class OCApp(ctk.CTk):
         # 최대 온도
         self.lbl_max_temp = ctk.CTkLabel(cpu_grid, text="")
         self.lbl_max_temp.grid(row=0, column=0, sticky="w", pady=5)
-        self.cpu_temp_var = tk.StringVar(value="90")
+        self.cpu_temp_var = ctk.StringVar(value="90")
         self.cpu_temp_entry = ctk.CTkEntry(cpu_grid, textvariable=self.cpu_temp_var, width=65, justify="center")
         self.cpu_temp_entry.grid(row=0, column=1, padx=5, pady=5)
         ctk.CTkLabel(cpu_grid, text="°C").grid(row=0, column=2, sticky="w", pady=5)
@@ -163,7 +164,7 @@ class OCApp(ctk.CTk):
         # 목표 클럭
         self.lbl_target_clk = ctk.CTkLabel(cpu_grid, text="")
         self.lbl_target_clk.grid(row=1, column=0, sticky="w", pady=5)
-        self.cpu_clk_var = tk.StringVar(value="4000")
+        self.cpu_clk_var = ctk.StringVar(value="4000")
         self.cpu_clk_entry = ctk.CTkEntry(cpu_grid, textvariable=self.cpu_clk_var, width=65, justify="center")
         self.cpu_clk_entry.grid(row=1, column=1, padx=5, pady=5)
         ctk.CTkLabel(cpu_grid, text="MHz").grid(row=1, column=2, sticky="w", pady=5)
@@ -174,7 +175,7 @@ class OCApp(ctk.CTk):
         # 목표 전압
         self.lbl_target_vol = ctk.CTkLabel(cpu_grid, text="")
         self.lbl_target_vol.grid(row=2, column=0, sticky="w", pady=5)
-        self.cpu_vol_var = tk.StringVar(value="1.250")
+        self.cpu_vol_var = ctk.StringVar(value="1.250")
         self.cpu_vol_entry = ctk.CTkEntry(cpu_grid, textvariable=self.cpu_vol_var, width=65, justify="center")
         self.cpu_vol_entry.grid(row=2, column=1, padx=5, pady=5)
         ctk.CTkLabel(cpu_grid, text="V").grid(row=2, column=2, sticky="w", pady=5)
@@ -201,13 +202,13 @@ class OCApp(ctk.CTk):
         
         self.lbl_throttling = ctk.CTkLabel(temp_frame)
         self.lbl_throttling.grid(row=0, column=0, sticky="w", pady=3)
-        self.gpu_throt_var = tk.StringVar(value="90")
+        self.gpu_throt_var = ctk.StringVar(value="90")
         ctk.CTkEntry(temp_frame, textvariable=self.gpu_throt_var, width=60, justify="center").grid(row=0, column=1, padx=5, pady=3)
         ctk.CTkLabel(temp_frame, text="°C").grid(row=0, column=2, sticky="w", pady=3)
         
         self.lbl_recovery = ctk.CTkLabel(temp_frame)
         self.lbl_recovery.grid(row=1, column=0, sticky="w", pady=3)
-        self.gpu_recov_var = tk.StringVar(value="85")
+        self.gpu_recov_var = ctk.StringVar(value="85")
         ctk.CTkEntry(temp_frame, textvariable=self.gpu_recov_var, width=60, justify="center").grid(row=1, column=1, padx=5, pady=3)
         ctk.CTkLabel(temp_frame, text="°C").grid(row=1, column=2, sticky="w", pady=3)
 
@@ -271,7 +272,6 @@ class OCApp(ctk.CTk):
         try:
             mhz = int(self.cpu_clk_var.get())
             mv = int(float(self.cpu_vol_var.get()) * 1000)
-            # 절대 경로(/root/.local/bin/...) 제거: 이제 시스템 전역 명령어 bc250-detect 호출
             subprocess.run(["sudo", "bc250-detect", "--frequency", str(mhz), "--vid", str(mv), "--keep"], check=True)
             self.load_cpu_config()
         except Exception as e: print(e)
@@ -283,7 +283,6 @@ class OCApp(ctk.CTk):
             temp = int(self.cpu_temp_var.get())
             with open(self.overclock_conf_path, "w") as f:
                 f.write(f"[overclock]\nfrequency={mhz}\nvid={mv}\nmax_temperature={temp}\nkeep=true\n")
-            # 절대 경로 제거: bc250-apply 명령어 호출
             subprocess.run(["sudo", "bc250-apply", "--install", self.overclock_conf_path], check=True)
         except Exception as e: print(e)
 
