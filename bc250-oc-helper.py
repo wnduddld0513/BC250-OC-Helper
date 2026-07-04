@@ -8,7 +8,9 @@ import customtkinter as ctk
 import getpass
 
 # 사용자마다 다른 홈 디렉토리 경로를 동적으로 구성
-USER = os.getenv('SUDO_USER', getpass.getuser())
+USER = os.getenv('SUDO_USER') or os.getenv('USER') or getpass.getuser()
+if USER == 'root':
+    USER = os.environ.get('USER')
 OVERCLOCK_CONF = f"/home/{USER}/bc250_smu_oc/overclock.conf"
 CONFIG_FILE = "/opt/bc250-oc-helper/config.txt"
 ICON_FILE = "/opt/bc250-oc-helper/icon.png"
