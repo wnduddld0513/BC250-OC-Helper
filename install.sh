@@ -95,7 +95,7 @@ sudo tee /usr/share/applications/bc250-oc-helper.desktop > /dev/null <<EOF
 [Desktop Entry]
 Type=Application
 Name=BC-250 OC Helper
-Comment=simple gui bc-250 overclock tool
+Comment=A simple GUI overclock tool to modify BC-250's CPU and GPU.
 Exec=sudo python /opt/bc250-oc-helper/bc250-oc-helper.py
 Icon=/opt/bc250-oc-helper/icon.png
 Terminal=true
