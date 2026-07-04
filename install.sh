@@ -22,7 +22,6 @@ sudo python -m pip install customtkinter --break-system-packages
 
 # 2. CPU 가버너 설치 (bc250-collective/bc250_smu_oc)
 echo -e "\n[2/7] CPU 가버너 설치 여부를 확인합니다."
-# 툴킷 설치, 수동 pipx 설치, 수동 전역 설치를 모두 감지
 if systemctl list-unit-files | grep -q 'bc250-smu-oc.service' || command -v bc250-apply &>/dev/null || sudo pipx list 2>/dev/null | grep -q 'bc250-smu-oc'; then
     echo "  -> ✔ 이미 설치되어 있습니다 (건너뜀)."
 else
@@ -39,7 +38,6 @@ else
     sudo ln -sf /root/.local/bin/bc250-apply /usr/local/bin/bc250-apply
     
     export PATH="$PATH:/usr/local/bin:/root/.local/bin"
-    # GitHub README 가이드라인에 따른 초기 3.5GHz 안전값 세팅 및 서비스 등록
     sudo bc250-detect --frequency 3500 --vid 1000 --keep
     sudo bc250-apply --install overclock.conf
     sudo systemctl enable bc250-smu-oc
@@ -48,7 +46,6 @@ fi
 
 # 3. GPU 가버너 설치 (filippor/cyan-skillfish-governor)
 echo -e "\n[3/7] GPU 가버너 설치 여부를 확인합니다."
-# AUR 설치, Cargo 소스 빌드 수동 설치 여부 모두 감지
 if systemctl list-unit-files | grep -q 'cyan-skillfish-governor-smu.service' || command -v cyan-skillfish-governor-smu &>/dev/null; then
     echo "  -> ✔ 이미 설치되어 있습니다 (건너뜀)."
 else
@@ -92,9 +89,9 @@ except Exception:
 img.save('/opt/oci/bc250-oc-helper/icon.png')
 "
 
-# 7. 시스템 유틸리티 메뉴 등록
+# 7. 시스템 유틸리티 메뉴 등록 (권한 오류 해결 부분)
 echo -e "\n[7/7] 시스템 메뉴에 앱을 등록합니다."
-sudo cat <<EOF > /usr/share/applications/bc250-oc-helper.desktop
+sudo tee /usr/share/applications/bc250-oc-helper.desktop > /dev/null <<EOF
 [Desktop Entry]
 Type=Application
 Name=BC-250 OC Helper
