@@ -16,5 +16,6 @@ sudo curl -sSL https://raw.githubusercontent.com/wnduddld0513/BC250-OC-Helper/ma
 
 
 CPU governor: https://github.com/bc250-collective/bc250_smu_oc/
+
 GPU governor: https://github.com/filippor/cyan-skillfish-governor/
 
