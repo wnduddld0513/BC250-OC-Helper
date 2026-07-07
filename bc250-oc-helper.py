@@ -15,7 +15,7 @@ if os.geteuid() != 0:
 CONFIG_FILE = "/opt/bc250-oc-helper/config.txt"
 ICON_FILE = "/opt/bc250-oc-helper/icon.png"
 
-GEMINI_FONT_FAMILY = "sans-serif"
+DEFAULT_FONT = "sans-serif"
 
 LANG = {
     "English": {
@@ -168,7 +168,7 @@ class OCApp(ctk.CTk):
             corner_radius=25,
             state="readonly",
             command=self.change_lang,
-            font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13),
+            font=ctk.CTkFont(family=DEFAULT_FONT, size=13),
         )
         self.lang_menu.set(self.settings["lang"])
         self.lang_menu.pack(side="left", padx=(15, 5), pady=10)
@@ -180,7 +180,7 @@ class OCApp(ctk.CTk):
             corner_radius=25,
             state="readonly",
             command=self.change_theme,
-            font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13),
+            font=ctk.CTkFont(family=DEFAULT_FONT, size=13),
         )
         self.theme_menu.set(self.settings["theme"])
         self.theme_menu.pack(side="left", padx=5, pady=10)
@@ -190,7 +190,7 @@ class OCApp(ctk.CTk):
             width=90,
             corner_radius=25,
             command=self.update_app,
-            font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13, weight="bold"),
+            font=ctk.CTkFont(family=DEFAULT_FONT, size=13, weight="bold"),
         )
         self.btn_update.pack(side="right", padx=(5, 15), pady=10)
 
@@ -222,22 +222,22 @@ class OCApp(ctk.CTk):
         self.save_settings()
         t = LANG[lang_name]
 
-        self.cpu_label.configure(text=t["cpu_control"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=14, weight="bold"))
-        self.gpu_label.configure(text=t["gpu_control"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=14, weight="bold"))
-        self.lbl_max_temp.configure(text=t["max_temp"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13))
-        self.lbl_target_clk.configure(text=t["target_clk"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13))
-        self.lbl_target_vol.configure(text=t["target_vol"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13))
+        self.cpu_label.configure(text=t["cpu_control"], font=ctk.CTkFont(family=DEFAULT_FONT, size=14, weight="bold"))
+        self.gpu_label.configure(text=t["gpu_control"], font=ctk.CTkFont(family=DEFAULT_FONT, size=14, weight="bold"))
+        self.lbl_max_temp.configure(text=t["max_temp"], font=ctk.CTkFont(family=DEFAULT_FONT, size=13))
+        self.lbl_target_clk.configure(text=t["target_clk"], font=ctk.CTkFont(family=DEFAULT_FONT, size=13))
+        self.lbl_target_vol.configure(text=t["target_vol"], font=ctk.CTkFont(family=DEFAULT_FONT, size=13))
 
-        self.btn_find_vol.configure(text=t["find_vol"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13, weight="bold"))
-        self.btn_apply_cpu.configure(text=t["apply"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13, weight="bold"))
-        self.btn_apply_gpu.configure(text=t["apply"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13, weight="bold"))
-        self.btn_reboot.configure(text=t["reboot"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13, weight="bold"))
+        self.btn_find_vol.configure(text=t["find_vol"], font=ctk.CTkFont(family=DEFAULT_FONT, size=13, weight="bold"))
+        self.btn_apply_cpu.configure(text=t["apply"], font=ctk.CTkFont(family=DEFAULT_FONT, size=13, weight="bold"))
+        self.btn_apply_gpu.configure(text=t["apply"], font=ctk.CTkFont(family=DEFAULT_FONT, size=13, weight="bold"))
+        self.btn_reboot.configure(text=t["reboot"], font=ctk.CTkFont(family=DEFAULT_FONT, size=13, weight="bold"))
         self.btn_update.configure(text=t["update"])
 
-        self.lbl_throttling.configure(text=t["throttling"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13))
-        self.lbl_recovery.configure(text=t["recovery"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13))
-        self.lbl_clk_head.configure(text=t["clk_mhz"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12))
-        self.lbl_vol_head.configure(text=t["vol_mv"], font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12))
+        self.lbl_throttling.configure(text=t["throttling"], font=ctk.CTkFont(family=DEFAULT_FONT, size=13))
+        self.lbl_recovery.configure(text=t["recovery"], font=ctk.CTkFont(family=DEFAULT_FONT, size=13))
+        self.lbl_clk_head.configure(text=t["clk_mhz"], font=ctk.CTkFont(family=DEFAULT_FONT, size=12))
+        self.lbl_vol_head.configure(text=t["vol_mv"], font=ctk.CTkFont(family=DEFAULT_FONT, size=12))
 
     def update_app(self):
         try:
@@ -260,7 +260,7 @@ class OCApp(ctk.CTk):
         cpu_card = ctk.CTkFrame(main_wrapper, corner_radius=20, fg_color=CARD_BG)
         cpu_card.pack(side="top", fill="x", pady=(0, 15))
 
-        self.cpu_label = ctk.CTkLabel(cpu_card, text="", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=14, weight="bold"))
+        self.cpu_label = ctk.CTkLabel(cpu_card, text="", font=ctk.CTkFont(family=DEFAULT_FONT, size=14, weight="bold"))
         self.cpu_label.pack(anchor="w", padx=20, pady=(15, 5))
 
         cpu_grid = ctk.CTkFrame(cpu_card, fg_color="transparent")
@@ -270,16 +270,16 @@ class OCApp(ctk.CTk):
         self.lbl_max_temp = ctk.CTkLabel(cpu_grid, text="")
         self.lbl_max_temp.grid(row=0, column=0, sticky="w", pady=8)
         self.cpu_temp_var = ctk.StringVar(value="90")
-        self.cpu_temp_entry = ctk.CTkEntry(cpu_grid, textvariable=self.cpu_temp_var, width=70, corner_radius=10, border_width=0, fg_color=ENTRY_BG, justify="center", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12))
+        self.cpu_temp_entry = ctk.CTkEntry(cpu_grid, textvariable=self.cpu_temp_var, width=70, corner_radius=10, border_width=0, fg_color=ENTRY_BG, justify="center", font=ctk.CTkFont(family=DEFAULT_FONT, size=12))
         self.cpu_temp_entry.grid(row=0, column=1, padx=10, pady=8)
-        ctk.CTkLabel(cpu_grid, text="°C", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12)).grid(row=0, column=2, sticky="w", pady=8)
+        ctk.CTkLabel(cpu_grid, text="°C", font=ctk.CTkFont(family=DEFAULT_FONT, size=12)).grid(row=0, column=2, sticky="w", pady=8)
 
         self.lbl_target_clk = ctk.CTkLabel(cpu_grid, text="")
         self.lbl_target_clk.grid(row=1, column=0, sticky="w", pady=8)
         self.cpu_clk_var = ctk.StringVar(value="4000")
-        self.cpu_clk_entry = ctk.CTkEntry(cpu_grid, textvariable=self.cpu_clk_var, width=70, corner_radius=10, border_width=0, fg_color=ENTRY_BG, justify="center", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12))
+        self.cpu_clk_entry = ctk.CTkEntry(cpu_grid, textvariable=self.cpu_clk_var, width=70, corner_radius=10, border_width=0, fg_color=ENTRY_BG, justify="center", font=ctk.CTkFont(family=DEFAULT_FONT, size=12))
         self.cpu_clk_entry.grid(row=1, column=1, padx=10, pady=8)
-        ctk.CTkLabel(cpu_grid, text="MHz", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12)).grid(row=1, column=2, sticky="w", pady=8)
+        ctk.CTkLabel(cpu_grid, text="MHz", font=ctk.CTkFont(family=DEFAULT_FONT, size=12)).grid(row=1, column=2, sticky="w", pady=8)
 
         self.cpu_clk_slider = ctk.CTkSlider(cpu_grid, from_=1000, to=4500, corner_radius=15, command=self.on_cpu_clk_slider_move)
         self.cpu_clk_slider.grid(row=1, column=3, sticky="ew", padx=15, pady=8)
@@ -287,9 +287,9 @@ class OCApp(ctk.CTk):
         self.lbl_target_vol = ctk.CTkLabel(cpu_grid, text="")
         self.lbl_target_vol.grid(row=2, column=0, sticky="w", pady=8)
         self.cpu_vol_var = ctk.StringVar(value="1.250")
-        self.cpu_vol_entry = ctk.CTkEntry(cpu_grid, textvariable=self.cpu_vol_var, width=70, corner_radius=10, border_width=0, fg_color=ENTRY_BG, justify="center", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12))
+        self.cpu_vol_entry = ctk.CTkEntry(cpu_grid, textvariable=self.cpu_vol_var, width=70, corner_radius=10, border_width=0, fg_color=ENTRY_BG, justify="center", font=ctk.CTkFont(family=DEFAULT_FONT, size=12))
         self.cpu_vol_entry.grid(row=2, column=1, padx=10, pady=8)
-        ctk.CTkLabel(cpu_grid, text="V", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12)).grid(row=2, column=2, sticky="w", pady=8)
+        ctk.CTkLabel(cpu_grid, text="V", font=ctk.CTkFont(family=DEFAULT_FONT, size=12)).grid(row=2, column=2, sticky="w", pady=8)
 
         self.cpu_vol_slider = ctk.CTkSlider(cpu_grid, from_=0.800, to=1.325, corner_radius=15, command=self.on_cpu_slider_move)
         self.cpu_vol_slider.grid(row=2, column=3, sticky="ew", padx=15, pady=8)
@@ -307,32 +307,32 @@ class OCApp(ctk.CTk):
         self.gpu_card = ctk.CTkFrame(main_wrapper, corner_radius=20, fg_color=CARD_BG)
         self.gpu_card.pack(side="top", fill="both", expand=True)
 
-        self.gpu_label = ctk.CTkLabel(self.gpu_card, text="", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=14, weight="bold"))
+        self.gpu_label = ctk.CTkLabel(self.gpu_card, text="", font=ctk.CTkFont(family=DEFAULT_FONT, size=14, weight="bold"))
         self.gpu_label.pack(anchor="w", padx=20, pady=(15, 5))
 
         temp_frame = ctk.CTkFrame(self.gpu_card, fg_color="transparent")
         temp_frame.pack(side="top", fill="x", padx=20, pady=5)
 
-        self.lbl_throttling = ctk.CTkLabel(temp_frame, font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13))
+        self.lbl_throttling = ctk.CTkLabel(temp_frame, font=ctk.CTkFont(family=DEFAULT_FONT, size=13))
         self.lbl_throttling.grid(row=0, column=0, sticky="w", pady=5)
         self.gpu_throt_var = ctk.StringVar(value="90")
-        ctk.CTkEntry(temp_frame, textvariable=self.gpu_throt_var, width=65, corner_radius=10, border_width=0, fg_color=ENTRY_BG, justify="center", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12)).grid(row=0, column=1, padx=10, pady=5)
-        ctk.CTkLabel(temp_frame, text="°C", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12)).grid(row=0, column=2, sticky="w", pady=5)
+        ctk.CTkEntry(temp_frame, textvariable=self.gpu_throt_var, width=65, corner_radius=10, border_width=0, fg_color=ENTRY_BG, justify="center", font=ctk.CTkFont(family=DEFAULT_FONT, size=12)).grid(row=0, column=1, padx=10, pady=5)
+        ctk.CTkLabel(temp_frame, text="°C", font=ctk.CTkFont(family=DEFAULT_FONT, size=12)).grid(row=0, column=2, sticky="w", pady=5)
 
-        self.lbl_recovery = ctk.CTkLabel(temp_frame, font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=13))
+        self.lbl_recovery = ctk.CTkLabel(temp_frame, font=ctk.CTkFont(family=DEFAULT_FONT, size=13))
         self.lbl_recovery.grid(row=1, column=0, sticky="w", pady=5)
         self.gpu_recov_var = ctk.StringVar(value="85")
-        ctk.CTkEntry(temp_frame, textvariable=self.gpu_recov_var, width=65, corner_radius=10, border_width=0, fg_color=ENTRY_BG, justify="center", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12)).grid(row=1, column=1, padx=10, pady=5)
-        ctk.CTkLabel(temp_frame, text="°C", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12)).grid(row=1, column=2, sticky="w", pady=5)
+        ctk.CTkEntry(temp_frame, textvariable=self.gpu_recov_var, width=65, corner_radius=10, border_width=0, fg_color=ENTRY_BG, justify="center", font=ctk.CTkFont(family=DEFAULT_FONT, size=12)).grid(row=1, column=1, padx=10, pady=5)
+        ctk.CTkLabel(temp_frame, text="°C", font=ctk.CTkFont(family=DEFAULT_FONT, size=12)).grid(row=1, column=2, sticky="w", pady=5)
 
         list_label_frame = ctk.CTkFrame(self.gpu_card, fg_color="transparent")
         list_label_frame.pack(side="top", fill="x", padx=20, pady=(10, 0))
         list_label_frame.columnconfigure(0, minsize=115)
         list_label_frame.columnconfigure(1, minsize=115)
 
-        self.lbl_clk_head = ctk.CTkLabel(list_label_frame, font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12))
+        self.lbl_clk_head = ctk.CTkLabel(list_label_frame, font=ctk.CTkFont(family=DEFAULT_FONT, size=12))
         self.lbl_clk_head.grid(row=0, column=0, sticky="w", padx=5)
-        self.lbl_vol_head = ctk.CTkLabel(list_label_frame, font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12))
+        self.lbl_vol_head = ctk.CTkLabel(list_label_frame, font=ctk.CTkFont(family=DEFAULT_FONT, size=12))
         self.lbl_vol_head.grid(row=0, column=1, sticky="w", padx=5)
 
         gpu_btn_frame = ctk.CTkFrame(self.gpu_card, fg_color="transparent")
@@ -472,12 +472,12 @@ class OCApp(ctk.CTk):
             widget.destroy()
 
         for i, pt in enumerate(self.gpu_safe_points):
-            f_entry = ctk.CTkEntry(self.points_container, width=80, corner_radius=10, border_width=0, fg_color=ENTRY_BG, justify="center", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12))
+            f_entry = ctk.CTkEntry(self.points_container, width=80, corner_radius=10, border_width=0, fg_color=ENTRY_BG, justify="center", font=ctk.CTkFont(family=DEFAULT_FONT, size=12))
             f_entry.insert(0, pt["frequency"])
             f_entry.grid(row=i, column=0, padx=5, pady=3, sticky="w")
             f_entry.bind("<FocusOut>", lambda e, idx=i, entry=f_entry: self.update_gpu_val(idx, "frequency", entry.get()))
 
-            v_entry = ctk.CTkEntry(self.points_container, width=80, corner_radius=10, border_width=0, fg_color=ENTRY_BG, justify="center", font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=12))
+            v_entry = ctk.CTkEntry(self.points_container, width=80, corner_radius=10, border_width=0, fg_color=ENTRY_BG, justify="center", font=ctk.CTkFont(family=DEFAULT_FONT, size=12))
             v_entry.insert(0, pt["voltage"])
             v_entry.grid(row=i, column=1, padx=5, pady=3, sticky="w")
             v_entry.bind("<FocusOut>", lambda e, idx=i, entry=v_entry: self.update_gpu_val(idx, "voltage", entry.get()))
@@ -494,7 +494,7 @@ class OCApp(ctk.CTk):
                 fg_color=SEC_BTN_BG,
                 hover_color=SEC_BTN_HOVER,
                 text_color=TEXT_COLOR,
-                font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=20, weight="bold"),
+                font=ctk.CTkFont(family=DEFAULT_FONT, size=20, weight="bold"),
                 command=lambda idx=i: self.add_gpu_row(idx),
             ).pack(side="left", padx=3)
 
@@ -507,7 +507,7 @@ class OCApp(ctk.CTk):
                 fg_color=SEC_BTN_BG,
                 hover_color=SEC_BTN_HOVER,
                 text_color=TEXT_COLOR,
-                font=ctk.CTkFont(family=GEMINI_FONT_FAMILY, size=20, weight="bold"),
+                font=ctk.CTkFont(family=DEFAULT_FONT, size=20, weight="bold"),
                 command=lambda idx=i: self.remove_gpu_row(idx),
             ).pack(side="left", padx=3)
 
