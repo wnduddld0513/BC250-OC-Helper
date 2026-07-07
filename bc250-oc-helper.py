@@ -99,8 +99,10 @@ class OCApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("BC-250 OC Helper")
-        self.geometry("450x640")
-        self.minsize(420, 580)
+
+        # 창 크기를 가로로 더 넓게 수정하여 여유 공간 확보
+        self.geometry("940x550")
+        self.minsize(880, 480)
 
         try:
             if os.path.exists(ICON_FILE):
@@ -257,8 +259,9 @@ class OCApp(ctk.CTk):
         main_wrapper = ctk.CTkFrame(self, fg_color="transparent")
         main_wrapper.pack(fill="both", expand=True, padx=20, pady=(10, 20))
 
+        # CPU 카드는 늘어나지 않고 내용물 크기만큼만 차지하도록 수정 (expand=False)
         cpu_card = ctk.CTkFrame(main_wrapper, corner_radius=20, fg_color=CARD_BG)
-        cpu_card.pack(side="top", fill="x", pady=(0, 15))
+        cpu_card.pack(side="left", fill="both", expand=False, padx=(0, 10))
 
         self.cpu_label = ctk.CTkLabel(cpu_card, text="", font=ctk.CTkFont(family=DEFAULT_FONT, size=14, weight="bold"))
         self.cpu_label.pack(anchor="w", padx=20, pady=(15, 5))
@@ -295,7 +298,7 @@ class OCApp(ctk.CTk):
         self.cpu_vol_slider.grid(row=2, column=3, sticky="ew", padx=15, pady=8)
 
         cpu_btn_frame = ctk.CTkFrame(cpu_card, fg_color="transparent")
-        cpu_btn_frame.pack(fill="x", padx=20, pady=(5, 15))
+        cpu_btn_frame.pack(side="bottom", fill="x", padx=20, pady=(5, 15))
         self.btn_apply_cpu = ctk.CTkButton(cpu_btn_frame, width=100, corner_radius=25)
         self.btn_apply_cpu.pack(side="right", padx=(10, 0))
         self.btn_find_vol = ctk.CTkButton(cpu_btn_frame, width=110, corner_radius=25, fg_color=SEC_BTN_BG, hover_color=SEC_BTN_HOVER, text_color=TEXT_COLOR)
@@ -304,8 +307,9 @@ class OCApp(ctk.CTk):
         self.btn_apply_cpu.configure(command=self.apply_cpu_oc)
         self.btn_find_vol.configure(command=self.run_cpu_detect)
 
+        # GPU 카드는 남는 공간을 전부 차지하도록 설정 (expand=True)
         self.gpu_card = ctk.CTkFrame(main_wrapper, corner_radius=20, fg_color=CARD_BG)
-        self.gpu_card.pack(side="top", fill="both", expand=True)
+        self.gpu_card.pack(side="left", fill="both", expand=True, padx=(10, 0))
 
         self.gpu_label = ctk.CTkLabel(self.gpu_card, text="", font=ctk.CTkFont(family=DEFAULT_FONT, size=14, weight="bold"))
         self.gpu_label.pack(anchor="w", padx=20, pady=(15, 5))
