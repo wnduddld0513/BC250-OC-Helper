@@ -434,9 +434,9 @@ class OCApp(ctk.CTk):
                     f"max_temperature = {temp}\n"
                 )
 
-            subprocess.run(["sudo", self.bc250_apply_bin, "--install", self.overclock_conf_path], check=True)
-            subprocess.run(["sudo", "systemctl", "restart", "bc250-smu-oc"], check=True)
             subprocess.run(["sudo", "systemctl", "daemon-reload"], check=True)
+            subprocess.run(["sudo", "systemctl", "restart", "bc250-smu-oc"], check=True)
+            #subprocess.run(["sudo", self.bc250_apply_bin, "--install", self.overclock_conf_path], check=True)
 
             self.current_scale = scale
             self.cpu_vol_var.set(f"{pred_mv / 1000.0:.3f}")
